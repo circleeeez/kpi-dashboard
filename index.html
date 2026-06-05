@@ -239,7 +239,7 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
     <div class="kpi-row" id="kpi-pills"></div>
     <div class="view-tabs">
       <div class="view-tab active" onclick="switchTab('daily',this)">日趋势（近14天）</div>
-      <div class="view-tab" onclick="switchTab('weekly',this)">周维度（近3周）</div>
+      <div class="view-tab" onclick="switchTab('weekly',this)">周维度（近5周）</div>
     </div>
 
     <!-- Daily -->
@@ -253,7 +253,7 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
           <div id="daily-table-wrap"></div>
         </div>
       </div>
-      <div class="section-label" style="margin-top:4px">波动预警 &nbsp;环比 ±10% 触发</div>
+      <div class="section-label" style="margin-top:4px">波动预警 &nbsp;环比 ±10% </div>
       <div class="card">
         <div class="alert-wrap" id="alert-wrap"></div>
       </div>
@@ -261,7 +261,7 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
 
     <!-- Weekly -->
     <div id="view-weekly" style="display:none">
-      <div class="section-label">近5个 ISO 自然周（周一至周日）· 所有 KPI</div>
+      <div class="section-label">近5个自然周（周一至周日）· 所有 KPI</div>
       <div class="card">
         <div style="overflow-x:auto"><table id="week-big-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px"></table></div>
       </div>

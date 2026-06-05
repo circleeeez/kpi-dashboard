@@ -154,8 +154,8 @@ td{
 td:first-child{text-align:left;font-family:'DM Sans',sans-serif;color:var(--text);font-weight:500;font-size:12px}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--bg2)}
-.cell-up{color:var(--success);font-weight:500}
-.cell-dn{color:var(--danger);font-weight:500}
+.cell-up{color:var(--danger);font-weight:500}
+.cell-dn{color:var(--success);font-weight:500}
 
 /* Alert table */
 .alert-wrap{overflow-x:auto}
@@ -165,8 +165,8 @@ tr:hover td{background:var(--bg2)}
 tr.row-danger td{background:var(--danger-bg);color:var(--danger)}
 tr.row-danger td:first-child{border-radius:4px 0 0 4px}
 tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
-.tag-up{color:var(--success);font-family:'DM Mono',monospace;font-size:12px}
-.tag-dn{color:var(--danger);font-family:'DM Mono',monospace;font-size:12px}
+.tag-up{color:var(--danger);font-family:'DM Mono',monospace;font-size:12px}
+.tag-dn{color:var(--success);font-family:'DM Mono',monospace;font-size:12px}
 .no-alert{padding:14px 4px;color:var(--success);font-size:13px;display:flex;align-items:center;gap:6px}
 
 /* Weekly */
@@ -181,10 +181,10 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
 .wval-wrap{display:flex;align-items:center;gap:6px}
 .wval{font-size:13px;font-weight:500;color:var(--text);font-family:'DM Mono',monospace}
 .delta{font-size:10px;font-family:'DM Mono',monospace;padding:1px 5px;border-radius:4px;font-weight:500}
-.delta.up{background:var(--success-bg);color:var(--success)}
-.delta.dn{background:var(--danger-bg);color:var(--danger)}
-.delta.big-up{background:#fef3c7;color:var(--warn)}
-.delta.big-dn{background:var(--danger-bg);color:var(--danger)}
+.delta.up{background:var(--danger-bg);color:var(--danger)}
+.delta.dn{background:var(--success-bg);color:var(--success)}
+.delta.big-up{background:var(--danger-bg);color:var(--danger)}
+.delta.big-dn{background:var(--success-bg);color:var(--success)}
 
 /* Weekly data table */
 .week-data-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:14px;border-top:1px solid var(--border);padding-top:4px}
@@ -609,10 +609,12 @@ function buildAlerts(allDates,channels,labels,fn){
   }
   const wrap=document.getElementById('alert-wrap');
   if(!rows.length){wrap.innerHTML=`<div class="no-alert">✓ 近14天无 ±10% 以上波动</div>`;return}
-  rows.sort((a,b)=>Math.abs(b.chg)-Math.abs(a.chg));
-  wrap.innerHTML=`<table class="alert-table"><thead><tr><th>日期</th><th>渠道</th><th>前日</th><th>当日</th><th>变化幅度</th></tr></thead>
-  <tbody>${rows.map(r=>{
-    const big=isBigAlert(r.chg,activeKPI),cls=big?'row-danger':'row-warn';
+
+  // 分成红色（大波动）和黄色（小波动）两组，各自按幅度从大到小排
+  const bigRows=rows.filter(r=>isBigAlert(r.chg,activeKPI)).sort((a,b)=>Math.abs(b.chg.val)-Math.abs(a.chg.val));
+  const warnRows=rows.filter(r=>!isBigAlert(r.chg,activeKPI)).sort((a,b)=>Math.abs(b.chg.val)-Math.abs(a.chg.val));
+
+  function buildRow(r,cls){
     const isUp=r.chg.val>0;
     let tagStr;
     if(r.chg.type==='abs'){
@@ -622,9 +624,21 @@ function buildAlerts(allDates,channels,labels,fn){
       const pct=Math.abs(r.chg.val*100).toFixed(1);
       tagStr=`<span class="${isUp?'tag-up':'tag-dn'}">${isUp?'▲ +':'▼ -'}${pct}%</span>`;
     }
-    const tag=tagStr;
-    return`<tr class="${cls}"><td>${r.date}</td><td>${r.ch}</td><td>${fmt(r.prev,activeKPI)}</td><td>${fmt(r.cur,activeKPI)}</td><td>${tag}</td></tr>`;
-  }).join('')}</tbody></table>`;
+    return`<tr class="${cls}"><td>${r.date}</td><td>${r.ch}</td><td>${fmt(r.prev,activeKPI)}</td><td>${fmt(r.cur,activeKPI)}</td><td>${tagStr}</td></tr>`;
+  }
+
+  const thead=`<thead><tr><th>日期</th><th>渠道</th><th>前日</th><th>当日</th><th>变化幅度</th></tr></thead>`;
+
+  let html='';
+  if(bigRows.length){
+    html+=`<div style="font-size:11px;color:var(--danger);font-weight:500;padding:8px 10px 4px;letter-spacing:.05em;text-transform:uppercase">⚠ 重大波动（红色）</div>`;
+    html+=`<table class="alert-table">${thead}<tbody>${bigRows.map(r=>buildRow(r,'row-danger')).join('')}</tbody></table>`;
+  }
+  if(warnRows.length){
+    html+=`<div style="font-size:11px;color:var(--warn);font-weight:500;padding:${bigRows.length?'14px':'8px'} 10px 4px;letter-spacing:.05em;text-transform:uppercase">⚡ 一般波动（黄色）</div>`;
+    html+=`<table class="alert-table">${thead}<tbody>${warnRows.map(r=>buildRow(r,'row-warn')).join('')}</tbody></table>`;
+  }
+  wrap.innerHTML=html;
 }
 
 function renderWeekly(){

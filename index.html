@@ -136,6 +136,21 @@ select:focus,select:hover{border-color:var(--accent)}
 /* Chart */
 .chart-wrap{position:relative;width:100%;height:260px}
 
+/* ── KPI chip (multi-select) ── */
+.kpi-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 13px;border-radius:20px;font-size:12px;cursor:pointer;
+  border:1.5px solid var(--border);color:var(--text2);background:#fff;
+  transition:all .15s;white-space:nowrap;box-shadow:var(--shadow);
+  user-select:none;
+}
+.kpi-pill input[type=checkbox]{
+  width:12px;height:12px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;
+  margin:0;
+}
+.kpi-pill.active{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}
+.kpi-pill:hover:not(.active){border-color:var(--accent);color:var(--accent)}
+
 /* ── Data table (below chart) ── */
 .data-table-wrap{margin-top:18px;overflow-x:auto;border-top:1px solid var(--border);padding-top:14px}
 .data-table-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);font-weight:500;margin-bottom:8px}
@@ -150,6 +165,7 @@ th:first-child{text-align:left}
 td{
   padding:6px 10px;border-bottom:1px solid var(--border);
   color:var(--text2);text-align:right;white-space:nowrap;font-family:'DM Mono',monospace;font-size:12px;
+  vertical-align:top;
 }
 td:first-child{text-align:left;font-family:'DM Sans',sans-serif;color:var(--text);font-weight:500;font-size:12px}
 tr:last-child td{border-bottom:none}
@@ -196,6 +212,12 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
 .week-data-table tr:last-child td{border-bottom:none}
 
 .no-data{padding:40px;text-align:center;color:var(--text3);font-size:13px}
+.week-preset{
+  background:#fff;border:1px solid var(--border);color:var(--text2);
+  padding:3px 10px;border-radius:5px;cursor:pointer;font-size:11px;
+  font-family:'DM Sans',sans-serif;transition:all .15s;
+}
+.week-preset:hover{border-color:var(--accent);color:var(--accent)}
 #loading{display:none;position:fixed;inset:0;background:rgba(255,255,255,.85);align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:10px}
 #loading.show{display:flex}
 .spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
@@ -239,7 +261,7 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
     <div class="kpi-row" id="kpi-pills"></div>
     <div class="view-tabs">
       <div class="view-tab active" onclick="switchTab('daily',this)">日趋势（近14天）</div>
-      <div class="view-tab" onclick="switchTab('weekly',this)">周维度（近3周）</div>
+      <div class="view-tab" onclick="switchTab('weekly',this)">周维度</div>
     </div>
 
     <!-- Daily -->
@@ -261,8 +283,18 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
 
     <!-- Weekly -->
     <div id="view-weekly" style="display:none">
-      <div class="section-label">近5个 ISO 自然周（周一至周日）· 所有 KPI</div>
+      <div class="section-label">ISO 自然周（周一至周日）· 所有 KPI</div>
       <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+          <select id="sel-week-start" onchange="onWeekRangeChange()" style="font-size:12px;padding:4px 8px"></select>
+          <span style="font-size:12px;color:var(--text3)">→</span>
+          <select id="sel-week-end" onchange="onWeekRangeChange()" style="font-size:12px;padding:4px 8px"></select>
+          <div style="display:flex;gap:4px;margin-left:6px">
+            <button class="week-preset" onclick="setWeekPreset(4)">近4周</button>
+            <button class="week-preset" onclick="setWeekPreset(8)">近8周</button>
+            <button class="week-preset" onclick="setWeekPreset(0)">全部</button>
+          </div>
+        </div>
         <div style="overflow-x:auto"><table id="week-big-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px"></table></div>
       </div>
     </div>
@@ -271,13 +303,15 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
 
 <script>
 let RAW=[];
-let activeKPI='消耗';
+let activeKPIs=['消耗'];
 let activeTab='daily';
 let lineChart=null;
 
 const KPIS=['消耗','CTR','CPC','回搜量','回搜率','CPS','JD店铺成本'];
 const CH_COLOR={SEM:'#2563eb',FEEDS:'#059669',Feeds:'#059669','发现页':'#d97706',OTHER:'#7c3aed'};
 const CH_DASH={SEM:[],FEEDS:[5,3],Feeds:[5,3],'发现页':[3,3],OTHER:[4,2]};
+// 每个KPI的线型（多KPI时区分）
+const KPI_LTYPE=['solid',[5,3],[2,2],[8,3],[4,2],[6,2],[3,3]];
 
 function normCh(c){return c==='Feeds'?'FEEDS':c}
 function isoWeek(d){
@@ -350,22 +384,80 @@ function initDashboard(){
   const sp=document.getElementById('sel-project'),sc=document.getElementById('sel-channel');
   sp.innerHTML='<option value="ALL">全部项目</option>'+projs.map(p=>`<option>${p}</option>`).join('');
   sc.innerHTML='<option value="ALL">全部渠道</option>'+chs.map(c=>`<option>${c}</option>`).join('');
-  document.getElementById('kpi-pills').innerHTML=KPIS.map(k=>
-    `<div class="kpi-pill${k===activeKPI?' active':''}" onclick="setKPI('${k}')">${k}</div>`).join('');
+  // KPI chips: multi-select checkboxes
+  document.getElementById('kpi-pills').innerHTML=KPIS.map(k=>`
+    <label class="kpi-pill${activeKPIs.includes(k)?' active':''}" id="kpi-chip-${k}">
+      <input type="checkbox" value="${k}" ${activeKPIs.includes(k)?'checked':''} onchange="toggleKPI('${k}')">
+      ${k}
+    </label>`).join('');
   const dates=RAW.map(r=>parseDate(r['时间'])).filter(Boolean).sort((a,b)=>a-b);
   if(dates.length){
     const s=dates[0],e=dates[dates.length-1];
     document.getElementById('data-info').textContent=
       `${RAW.length}行 · ${s.getFullYear()}-${s.getMonth()+1}-${s.getDate()} ~ ${e.getFullYear()}-${e.getMonth()+1}-${e.getDate()}`;
   }
+  // 初始化周起始选择器
+  populateWeekStartSel();
   document.getElementById('upload-screen').style.display='none';
   document.getElementById('dashboard').style.display='flex';
   render();
 }
 
-function setKPI(k){
-  activeKPI=k;
-  document.querySelectorAll('.kpi-pill').forEach(el=>el.classList.toggle('active',el.textContent===k));
+function populateWeekStartSel(){
+  const weekSet=new Set();
+  RAW.forEach(r=>{const d=parseDate(r['时间']);if(d)weekSet.add(isoWeek(d))});
+  const allWeeks=[...weekSet].sort((a,b)=>a-b);
+  const selStart=document.getElementById('sel-week-start');
+  const selEnd=document.getElementById('sel-week-end');
+  if(!selStart||!selEnd)return;
+  const opts=allWeeks.map(w=>`<option value="${w}">W${w}</option>`).join('');
+  selStart.innerHTML=opts;
+  selEnd.innerHTML=opts;
+  if(allWeeks.length){
+    // 默认近4周
+    const endIdx=allWeeks.length-1;
+    const startIdx=Math.max(0,endIdx-3);
+    selStart.value=allWeeks[startIdx];
+    selEnd.value=allWeeks[endIdx];
+  }
+}
+
+function onWeekRangeChange(){
+  const selStart=document.getElementById('sel-week-start');
+  const selEnd=document.getElementById('sel-week-end');
+  // 保证 start <= end
+  if(parseInt(selStart.value)>parseInt(selEnd.value)){
+    selEnd.value=selStart.value;
+  }
+  renderWeekly();
+}
+
+function setWeekPreset(n){
+  const weekSet=new Set();
+  RAW.forEach(r=>{const d=parseDate(r['时间']);if(d)weekSet.add(isoWeek(d))});
+  const allWeeks=[...weekSet].sort((a,b)=>a-b);
+  if(!allWeeks.length)return;
+  const selStart=document.getElementById('sel-week-start');
+  const selEnd=document.getElementById('sel-week-end');
+  const endIdx=allWeeks.length-1;
+  const startIdx=n===0?0:Math.max(0,endIdx-(n-1));
+  selStart.value=allWeeks[startIdx];
+  selEnd.value=allWeeks[endIdx];
+  renderWeekly();
+}
+
+function toggleKPI(k){
+  if(activeKPIs.includes(k)){
+    if(activeKPIs.length===1)return; // 至少保留一个
+    activeKPIs=activeKPIs.filter(x=>x!==k);
+  } else {
+    activeKPIs=[...activeKPIs,k];
+  }
+  // 同步chip外观
+  document.querySelectorAll('.kpi-pill').forEach(el=>{
+    const cb=el.querySelector('input');
+    if(cb) el.classList.toggle('active',cb.checked);
+  });
   render();
 }
 function switchTab(tab,el){
@@ -510,37 +602,76 @@ function aggVal(rows,kpi){
 
 function renderDaily(){
   const data=filtered();
-  // 基准 = 本地今天减一天，往前取14天
   const today=new Date();
   const maxDate=new Date(today.getFullYear(),today.getMonth(),today.getDate()-1);
-  const cut=new Date(maxDate);cut.setDate(maxDate.getDate()-13); // 含基准日共14天
+  const cut=new Date(maxDate);cut.setDate(maxDate.getDate()-13);
   const recent=data.filter(r=>{const d=parseDate(r['时间']);return d&&d>=cut&&d<=maxDate});
   const allDates=[...new Set(recent.map(r=>{const d=parseDate(r['时间']);return d?localStr(d):null}).filter(Boolean))].sort();
   const channels=[...new Set(recent.map(r=>normCh(r['渠道'])).filter(Boolean))];
 
-  function getAgg(dt,ch){
+  function getAgg(dt,ch,kpi){
     const rows=recent.filter(r=>{
       const d=parseDate(r['时间']);
       return d&&localStr(d)===dt&&normCh(r['渠道'])===ch;
     });
-    return aggVal(rows,activeKPI);
+    return aggVal(rows,kpi);
   }
 
   const labels=allDates.map(d=>fmtDate(new Date(d)));
-  const datasets=channels.map(ch=>{
-    const col=CH_COLOR[ch]||CH_COLOR.OTHER;
-    return{label:ch,data:allDates.map(dt=>getAgg(dt,ch)),
-      borderColor:col,backgroundColor:col+'15',borderWidth:2,
-      pointRadius:3,pointHoverRadius:5,borderDash:CH_DASH[ch]||[],
-      tension:.3,fill:false,spanGaps:true};
+
+  const KPI_DASHES=[[],[5,3],[2,2],[8,3],[4,2],[6,2],[3,3]];
+  const multiKPI=activeKPIs.length>1;
+
+  // 多KPI时：先算每个KPI跨所有渠道的全局min/max，用于归一化
+  const kpiRange={};
+  if(multiKPI){
+    activeKPIs.forEach(kpi=>{
+      const allVals=[];
+      channels.forEach(ch=>allDates.forEach(dt=>{const v=getAgg(dt,ch,kpi);if(v!=null&&!isNaN(v))allVals.push(v)}));
+      const mn=Math.min(...allVals),mx=Math.max(...allVals);
+      kpiRange[kpi]={min:mn,max:mx===mn?mn+1:mx};
+    });
+  }
+
+  function normalize(v,kpi){
+    if(v==null||isNaN(v))return null;
+    if(!multiKPI)return v;
+    const {min,max}=kpiRange[kpi];
+    return((v-min)/(max-min))*100;
+  }
+
+  // 真实值存在 dataset.rawData 供 tooltip 使用
+  const datasets=[];
+  activeKPIs.forEach((kpi,ki)=>{
+    channels.forEach(ch=>{
+      const col=CH_COLOR[ch]||CH_COLOR.OTHER;
+      const rawData=allDates.map(dt=>getAgg(dt,ch,kpi));
+      datasets.push({
+        label:`${ch} · ${kpi}`,
+        data:rawData.map(v=>normalize(v,kpi)),
+        rawData,
+        kpi,
+        borderColor:col,backgroundColor:col+'15',borderWidth:2,
+        pointRadius:3,pointHoverRadius:5,
+        borderDash:KPI_DASHES[ki]||[],
+        tension:.3,fill:false,spanGaps:true
+      });
+    });
   });
 
   // Legend
-  document.getElementById('line-legend').innerHTML=channels.map(ch=>{
+  const legendItems=[];
+  channels.forEach(ch=>{
     const col=CH_COLOR[ch]||CH_COLOR.OTHER;
-    const isDash=(CH_DASH[ch]||[]).length>0;
-    return`<div class="legend-item"><div class="${isDash?'legend-line':'legend-dot'}" style="${isDash?`color:${col}`:`background:${col}`}"></div><span>${ch}</span></div>`;
-  }).join('');
+    legendItems.push(`<div class="legend-item"><div class="legend-dot" style="background:${col}"></div><span>${ch}</span></div>`);
+  });
+  if(multiKPI){
+    activeKPIs.forEach((kpi,ki)=>{
+      const dash=KPI_DASHES[ki]||[];
+      legendItems.push(`<div class="legend-item"><div class="${dash.length?'legend-line':'legend-dot'}" style="${dash.length?`color:#9ca3af`:`background:#9ca3af`}"></div><span style="color:var(--text3)">${kpi}</span></div>`);
+    });
+  }
+  document.getElementById('line-legend').innerHTML=legendItems.join('');
 
   // Chart
   if(lineChart)lineChart.destroy();
@@ -551,51 +682,67 @@ function renderDaily(){
       plugins:{legend:{display:false},tooltip:{
         backgroundColor:'#fff',borderColor:'#e5e7eb',borderWidth:1,
         titleColor:'#6b7280',bodyColor:'#111827',padding:10,
-        boxShadow:'0 4px 12px rgba(0,0,0,.1)',
-        callbacks:{label:ctx=>`  ${ctx.dataset.label}: ${fmt(ctx.raw,activeKPI)}`}
+        callbacks:{
+          label:ctx=>{
+            const ds=ctx.dataset;
+            const real=ds.rawData?ds.rawData[ctx.dataIndex]:ctx.raw;
+            return`  ${ds.label}: ${fmt(real, ds.kpi||activeKPIs[0])}`;
+          }
+        }
       }},
       scales:{
         x:{ticks:{color:'#9ca3af',font:{size:11},maxRotation:45,autoSkip:false},grid:{color:'#f3f4f6'}},
-        y:{ticks:{color:'#9ca3af',font:{size:11},callback:v=>fmt(v,activeKPI)},grid:{color:'#f3f4f6'}}
+        y:{
+          ticks:{color:'#9ca3af',font:{size:11},callback:v=>multiKPI?v.toFixed(0)+'%':fmt(v,activeKPIs[0])},
+          grid:{color:'#f3f4f6'},
+          ...(multiKPI?{min:0,max:100,title:{display:true,text:'归一化（各KPI独立缩放）',color:'#9ca3af',font:{size:10}}}:{})
+        }
       }
     }
   });
 
-  // ── Data table below chart ──
+  // ── Data table: 行=日期, 列=渠道×KPI ──
   const tableWrap=document.getElementById('daily-table-wrap');
   if(!allDates.length){tableWrap.innerHTML='<div class="no-data">暂无数据</div>';return}
 
-  // 合计列：用正确公式聚合某天所有渠道
-  function getDayTotal(dt){
+  function getDayTotal(dt,kpi){
     const rows=recent.filter(r=>{const d=parseDate(r['时间']);return d&&localStr(d)===dt});
-    return aggVal(rows,activeKPI);
+    return aggVal(rows,kpi);
   }
 
-  const chHeaders=channels.map(ch=>`<th style="color:${CH_COLOR[ch]||CH_COLOR.OTHER}">${ch}</th>`).join('');
+  // 表头：日期 | (渠道·KPI)... | 合计(每KPI)
+  let headerCols='';
+  activeKPIs.forEach(kpi=>{
+    channels.forEach(ch=>{
+      headerCols+=`<th style="color:${CH_COLOR[ch]||CH_COLOR.OTHER}">${ch}<br><span style="font-weight:400;color:var(--text3)">${kpi}</span></th>`;
+    });
+    headerCols+=`<th style="font-weight:600;color:var(--text)">合计<br><span style="font-weight:400;color:var(--text3)">${kpi}</span></th>`;
+  });
+
   const bodyRows=allDates.map((dt,i)=>{
     const label=labels[i];
-    const cells=channels.map(ch=>{
-      const cur=getAgg(dt,ch);
-      const prev=i>0?getAgg(allDates[i-1],ch):null;
-      const chg=calcChange(cur,prev,activeKPI);
-      const delta=fmtChange(chg,activeKPI);
-      return`<td>${fmt(cur,activeKPI)}${delta}</td>`;
-    }).join('');
-    // 合计列
-    const tot=getDayTotal(dt);
-    const totPrev=i>0?getDayTotal(allDates[i-1]):null;
-    let totDelta='';
-    const totChg=calcChange(tot,totPrev,activeKPI);
-    if(totChg) totDelta=fmtChange(totChg,activeKPI);
-    const totCell=`<td style="font-weight:600;color:var(--text)">${fmt(tot,activeKPI)}${totDelta}</td>`;
-    return`<tr><td>${label}</td>${cells}${totCell}</tr>`;
+    let cells='';
+    activeKPIs.forEach(kpi=>{
+      channels.forEach(ch=>{
+        const cur=getAgg(dt,ch,kpi);
+        const prev=i>0?getAgg(allDates[i-1],ch,kpi):null;
+        const delta=fmtChange(calcChange(cur,prev,kpi),kpi);
+        cells+=`<td>${fmt(cur,kpi)}${delta}</td>`;
+      });
+      const tot=getDayTotal(dt,kpi);
+      const totPrev=i>0?getDayTotal(allDates[i-1],kpi):null;
+      const totDelta=fmtChange(calcChange(tot,totPrev,kpi),kpi);
+      cells+=`<td style="font-weight:600;color:var(--text)">${fmt(tot,kpi)}${totDelta}</td>`;
+    });
+    return`<tr><td>${label}</td>${cells}</tr>`;
   }).join('');
 
-  tableWrap.innerHTML=`<table><thead><tr><th>日期</th>${chHeaders}<th style="font-weight:600;color:var(--text)">合计</th></tr></thead><tbody>${bodyRows}</tbody></table>`;
+  tableWrap.innerHTML=`<table><thead><tr><th>日期</th>${headerCols}</tr></thead><tbody>${bodyRows}</tbody></table>`;
 
-  // Alerts
-  buildAlerts(allDates,channels,labels,(dt,ch)=>getAgg(dt,ch));
+  // Alerts（基于第一个KPI）
+  buildAlerts(allDates,channels,labels,(dt,ch)=>getAgg(dt,ch,activeKPIs[0]));
 }
+
 
 function buildAlerts(allDates,channels,labels,fn){
   const rows=[];
@@ -603,16 +750,16 @@ function buildAlerts(allDates,channels,labels,fn){
     for(const ch of channels){
       const prev=fn(allDates[i-1],ch),cur=fn(allDates[i],ch);
       if(prev==null||cur==null||prev===0)continue;
-      const chg=calcChange(cur,prev,activeKPI);
-      if(chg&&isAlerted(chg,activeKPI))rows.push({date:labels[i],ch,prev,cur,chg});
+      const chg=calcChange(cur,prev,activeKPIs[0]);
+      if(chg&&isAlerted(chg,activeKPIs[0]))rows.push({date:labels[i],ch,prev,cur,chg});
     }
   }
   const wrap=document.getElementById('alert-wrap');
   if(!rows.length){wrap.innerHTML=`<div class="no-alert">✓ 近14天无 ±10% 以上波动</div>`;return}
 
   // 分成红色（大波动）和黄色（小波动）两组，各自按幅度从大到小排
-  const bigRows=rows.filter(r=>isBigAlert(r.chg,activeKPI)).sort((a,b)=>Math.abs(b.chg.val)-Math.abs(a.chg.val));
-  const warnRows=rows.filter(r=>!isBigAlert(r.chg,activeKPI)).sort((a,b)=>Math.abs(b.chg.val)-Math.abs(a.chg.val));
+  const bigRows=rows.filter(r=>isBigAlert(r.chg,activeKPIs[0])).sort((a,b)=>Math.abs(b.chg.val)-Math.abs(a.chg.val));
+  const warnRows=rows.filter(r=>!isBigAlert(r.chg,activeKPIs[0])).sort((a,b)=>Math.abs(b.chg.val)-Math.abs(a.chg.val));
 
   function buildRow(r,cls){
     const isUp=r.chg.val>0;
@@ -624,7 +771,7 @@ function buildAlerts(allDates,channels,labels,fn){
       const pct=Math.abs(r.chg.val*100).toFixed(1);
       tagStr=`<span class="${isUp?'tag-up':'tag-dn'}">${isUp?'▲ +':'▼ -'}${pct}%</span>`;
     }
-    return`<tr class="${cls}"><td>${r.date}</td><td>${r.ch}</td><td>${fmt(r.prev,activeKPI)}</td><td>${fmt(r.cur,activeKPI)}</td><td>${tagStr}</td></tr>`;
+    return`<tr class="${cls}"><td>${r.date}</td><td>${r.ch}</td><td>${fmt(r.prev,activeKPIs[0])}</td><td>${fmt(r.cur,activeKPIs[0])}</td><td>${tagStr}</td></tr>`;
   }
 
   const thead=`<thead><tr><th>日期</th><th>渠道</th><th>前日</th><th>当日</th><th>变化幅度</th></tr></thead>`;
@@ -645,26 +792,43 @@ function renderWeekly(){
   const data=filtered();
   if(!data.length){document.getElementById('week-big-table').innerHTML='<tr><td class="no-data">暂无数据</td></tr>';return}
 
-  // 近5个ISO周
+  // 所有ISO周
   const weekSet=new Set();
   data.forEach(r=>{const d=parseDate(r['时间']);if(d)weekSet.add(isoWeek(d))});
-  const last5=[...weekSet].sort((a,b)=>b-a).slice(0,5).reverse();
+  const allWeeks=[...weekSet].sort((a,b)=>a-b);
+
+  // 根据起止选择器确定可见周
+  const selStart=document.getElementById('sel-week-start');
+  const selEnd=document.getElementById('sel-week-end');
+  const startWn=selStart&&selStart.value?parseInt(selStart.value):allWeeks[0];
+  const endWn=selEnd&&selEnd.value?parseInt(selEnd.value):allWeeks[allWeeks.length-1];
+  const visibleWeeks=allWeeks.filter(w=>w>=startWn&&w<=endWn);
+  if(!visibleWeeks.length){document.getElementById('week-big-table').innerHTML='<tr><td class="no-data">暂无数据</td></tr>';return}
+
   const channels=[...new Set(data.map(r=>normCh(r['渠道'])).filter(Boolean))];
 
-  // 聚合函数：某周某渠道某KPI
   function wAgg(wn,ch,kpi){
     const rows=data.filter(r=>{const d=parseDate(r['时间']);return d&&isoWeek(d)===wn&&normCh(r['渠道'])===ch});
     return aggVal(rows,kpi);
   }
 
-  // 环比标签
-  function deltaTag(cur,prev,kpi){
+  // 环比标签 — 显示在数字下方，不加新列
+  function deltaBelow(cur,prev,kpi){
     const chg=calcChange(cur,prev,kpi);
-    return fmtChangeInline(chg,kpi);
+    if(!chg) return '<div style="font-size:10px;color:var(--text3)">—</div>';
+    const isUp=chg.val>0;
+    const cls=isUp?'cell-up':'cell-dn';
+    if(chg.type==='abs'){
+      const pp=(chg.val*100).toFixed(2);
+      return`<div class="${cls}" style="font-size:10px">${isUp?'▲':'▼'}${Math.abs(pp)}pp</div>`;
+    } else {
+      const pct=(chg.val*100).toFixed(1);
+      return`<div class="${cls}" style="font-size:10px">${isUp?'▲':'▼'}${Math.abs(pct)}%</div>`;
+    }
   }
 
-  // 表头：渠道 | KPI | W21 环比 | W22 环比 | ...
-  const weekCols=last5.map((wn,i)=>`<th style="text-align:right;min-width:64px">W${wn}</th>${i>0?'<th style="text-align:right;min-width:52px;color:var(--text3)">环比</th>':''}`).join('');
+  // 表头：渠道 | 指标 | W{n} | W{n+1} | ...（每周一列，环比嵌在单元格内）
+  const weekCols=visibleWeeks.map(wn=>`<th style="text-align:right;min-width:72px">W${wn}</th>`).join('');
   const thead=`<thead>
     <tr style="background:var(--bg2)">
       <th style="text-align:left;position:sticky;left:0;background:var(--bg2);z-index:1;min-width:72px">渠道</th>
@@ -673,14 +837,11 @@ function renderWeekly(){
     </tr>
   </thead>`;
 
-  // 表体：每个渠道 × 每个KPI 一行
   let tbody='<tbody>';
   channels.forEach((ch,ci)=>{
     const col=CH_COLOR[ch]||CH_COLOR.OTHER;
     KPIS.forEach((kpi,ki)=>{
-      const vals=last5.map(wn=>wAgg(wn,ch,kpi));
       const isFirstKpi=ki===0;
-      // 渠道单元格只在第一个KPI行显示，跨行
       const chCell=isFirstKpi
         ?`<td rowspan="${KPIS.length}" style="text-align:left;vertical-align:middle;position:sticky;left:0;background:#fff;z-index:1;border-right:1px solid var(--border);padding:6px 10px">
             <div style="display:flex;align-items:center;gap:6px">
@@ -691,12 +852,19 @@ function renderWeekly(){
         :'';
       const rowBg=ci%2===1?'background:var(--bg2)':'';
       const topBorder=isFirstKpi?'border-top:2px solid var(--border)':'';
-      const kpiCells=last5.map((wn,i)=>{
-        const cur=vals[i],prev=i>0?vals[i-1]:null;
-        const valStr=`<td style="text-align:right;padding:6px 10px;white-space:nowrap;font-family:'DM Mono',monospace">${fmt(cur,kpi)}</td>`;
-        const dStr=i>0?`<td style="text-align:right;padding:6px 6px;white-space:nowrap">${deltaTag(cur,prev,kpi)}</td>`:'';
-        return valStr+dStr;
+
+      // 每周：值+环比在同一格，环比在值下方
+      const kpiCells=visibleWeeks.map((wn,i)=>{
+        const cur=wAgg(wn,ch,kpi);
+        // 环比：与上一个可见周比
+        const prevWn=i>0?visibleWeeks[i-1]:null;
+        const prev=prevWn!==null?wAgg(prevWn,ch,kpi):null;
+        return`<td style="text-align:right;padding:6px 10px;font-family:'DM Mono',monospace;vertical-align:top">
+          <div>${fmt(cur,kpi)}</div>
+          ${i>0?deltaBelow(cur,prev,kpi):'<div style="font-size:10px;color:var(--text3)"> </div>'}
+        </td>`;
       }).join('');
+
       tbody+=`<tr style="${rowBg}${topBorder?';'+topBorder:''}">
         ${chCell}
         <td style="text-align:left;padding:6px 10px;color:var(--text2);font-size:11px;white-space:nowrap;position:sticky;left:72px;background:inherit;z-index:1;border-right:1px solid var(--border)">${kpi}</td>
@@ -708,6 +876,7 @@ function renderWeekly(){
 
   document.getElementById('week-big-table').innerHTML=thead+tbody;
 }
+
 
 // Wiring
 const dz=document.getElementById('drop-zone'),fi=document.getElementById('file-input');

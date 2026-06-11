@@ -94,8 +94,8 @@ thead tr{background:var(--bg2)}
 th{text-align:right;padding:7px 10px;color:var(--text2);font-weight:500;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap}
 th:first-child,th:nth-child(2){text-align:left}
 td{padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2);text-align:right;white-space:nowrap;font-family:'DM Mono',monospace;font-size:12px;vertical-align:top}
-td:first-child{text-align:left;font-family:'DM Sans',sans-serif;color:var(--text);font-weight:500}
-td:nth-child(2){text-align:left;font-family:'DM Sans',sans-serif}
+td.col-date{text-align:left;font-family:'DM Sans',sans-serif;color:var(--text);font-weight:500}
+td.col-ch{text-align:left;font-family:'DM Sans',sans-serif}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--bg2)}
 .cell-up{color:var(--danger);font-weight:500}
@@ -572,13 +572,13 @@ function renderDaily(){
       const chColor=CH_COLOR[ch]||'#9ca3af';const chDash=CH_DASH[ch]||[];
       const lineStyle=chDash.length?`border-top:2px dashed ${chColor};width:18px;height:0;display:inline-block`:`border-top:2.5px solid ${chColor};width:18px;height:0;display:inline-block`;
       const chLabel=`<div style="display:flex;align-items:center;gap:5px"><span style="${lineStyle}"></span><span>${ch}</span></div>`;
-      const dateTd=ci===0?`<td rowspan="${sortedCh.length+1}" style="vertical-align:middle;border-right:1px solid var(--border)">${label}</td>`:'';
+      const dateTd=ci===0?`<td class="col-date" rowspan="${sortedCh.length+1}" style="vertical-align:middle;border-right:1px solid var(--border)">${label}</td>`:'';
       let kpiCells='';
       activeKPIs.forEach(kpi=>{
         const cur=getAgg(dt,ch,kpi);const prev=di>0?getAgg(allDates[di-1],ch,kpi):null;
         kpiCells+=`<td>${fmt(cur,kpi)}${fmtChange(calcChange(cur,prev,kpi),kpi)}</td>`;
       });
-      rows+=`<tr style="${ci===0?'border-top:2px solid var(--border)':''}">${dateTd}<td style="text-align:left;white-space:nowrap;padding:6px 10px">${chLabel}</td>${kpiCells}</tr>`;
+      rows+=`<tr style="${ci===0?'border-top:2px solid var(--border)':''}">${dateTd}<td class="col-ch" style="white-space:nowrap;padding:6px 10px">${chLabel}</td>${kpiCells}</tr>`;
     });
     // Total row
     let totCells='';
@@ -586,7 +586,7 @@ function renderDaily(){
       const cur=getDayTotal(dt,kpi);const prev=di>0?getDayTotal(allDates[di-1],kpi):null;
       totCells+=`<td style="font-weight:600;color:var(--text)">${fmt(cur,kpi)}${fmtChange(calcChange(cur,prev,kpi),kpi)}</td>`;
     });
-    rows+=`<tr style="background:var(--bg2)"><td style="padding:6px 10px;font-weight:600;color:var(--text2);font-size:11px">合计</td>${totCells}</tr>`;
+    rows+=`<tr style="background:var(--bg2)"><td class="col-ch" style="padding:6px 10px;font-weight:600;color:var(--text2);font-size:11px">合计</td>${totCells}</tr>`;
     return rows;
   }).join('');
   tableWrap.innerHTML=`<table><thead><tr><th>日期</th><th>渠道</th>${headerCols}</tr></thead><tbody>${bodyRows}</tbody></table>`;
@@ -719,20 +719,20 @@ function renderWeekly(){
       const chColor=CH_COLOR[ch]||'#9ca3af';const chDash=CH_DASH[ch]||[];
       const lineStyle=chDash.length?`border-top:2px dashed ${chColor};width:18px;height:0;display:inline-block`:`border-top:2.5px solid ${chColor};width:18px;height:0;display:inline-block`;
       const chLabel=`<div style="display:flex;align-items:center;gap:5px"><span style="${lineStyle}"></span><span>${ch}</span></div>`;
-      const dateTd=ci===0?`<td rowspan="${sortedCh.length+1}" style="vertical-align:middle;border-right:1px solid var(--border)">W${wn}</td>`:'';
+      const dateTd=ci===0?`<td class="col-date" rowspan="${sortedCh.length+1}" style="vertical-align:middle;border-right:1px solid var(--border)">W${wn}</td>`:'';
       let kpiCells='';
       activeWeekKPIs.forEach(kpi=>{
         const cur=wAgg(wn,ch,kpi);const prev=wi>0?wAgg(visibleWeeks[wi-1],ch,kpi):null;
         kpiCells+=`<td>${fmt(cur,kpi)}${fmtChange(calcChange(cur,prev,kpi),kpi)}</td>`;
       });
-      rows+=`<tr style="${ci===0?'border-top:2px solid var(--border)':''}">${dateTd}<td style="text-align:left;white-space:nowrap;padding:6px 10px">${chLabel}</td>${kpiCells}</tr>`;
+      rows+=`<tr style="${ci===0?'border-top:2px solid var(--border)':''}">${dateTd}<td class="col-ch" style="white-space:nowrap;padding:6px 10px">${chLabel}</td>${kpiCells}</tr>`;
     });
     let totCells='';
     activeWeekKPIs.forEach(kpi=>{
       const cur=wTotal(wn,kpi);const prev=wi>0?wTotal(visibleWeeks[wi-1],kpi):null;
       totCells+=`<td style="font-weight:600;color:var(--text)">${fmt(cur,kpi)}${fmtChange(calcChange(cur,prev,kpi),kpi)}</td>`;
     });
-    rows+=`<tr style="background:var(--bg2)"><td style="padding:6px 10px;font-weight:600;color:var(--text2);font-size:11px">合计</td>${totCells}</tr>`;
+    rows+=`<tr style="background:var(--bg2)"><td class="col-ch" style="padding:6px 10px;font-weight:600;color:var(--text2);font-size:11px">合计</td>${totCells}</tr>`;
     return rows;
   }).join('');
   tableWrap.innerHTML=`<table><thead><tr><th>周次</th><th>渠道</th>${headerCols}</tr></thead><tbody>${bodyRows}</tbody></table>`;

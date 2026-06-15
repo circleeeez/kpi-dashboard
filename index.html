@@ -201,9 +201,10 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
         <!-- 摘要控件行 -->
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
           <span style="font-size:12px;color:var(--text2);white-space:nowrap">摘要对比：</span>
-          <select id="sel-summary-this" onchange="renderWeekly()" style="font-size:12px;padding:3px 8px"></select>
+          <select id="sel-summary-this" onchange="onSummaryChange()" style="font-size:12px;padding:3px 8px"></select>
           <span style="font-size:12px;color:var(--text3)">vs</span>
           <select id="sel-summary-vs" onchange="renderWeekly()" style="font-size:12px;padding:3px 8px"></select>
+          <span style="font-size:11px;color:var(--text3);margin-left:4px">※ 修改此处会同步更新图表范围</span>
         </div>
         <div id="week-summary" style="font-size:13px;line-height:1.9;color:var(--text2)">
           <span style="color:var(--text3);font-size:12px">加载数据后自动生成摘要…</span>
@@ -213,6 +214,7 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
       <!-- 周范围 + 图表 + 表格 -->
       <div class="card" style="border-radius:0 0 var(--radius-lg) var(--radius-lg);border-top:1px dashed var(--border);margin-top:0">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--text2)">图表范围：</span>
           <select id="sel-week-start" onchange="onWeekRangeChange()" style="font-size:12px;padding:4px 8px"></select>
           <span style="font-size:12px;color:var(--text3)">→</span>
           <select id="sel-week-end" onchange="onWeekRangeChange()" style="font-size:12px;padding:4px 8px"></select>
@@ -448,6 +450,17 @@ function populateWeekSels(){
     const sv=document.getElementById('sel-summary-vs');if(sv)sv.value=prev;
   }
 }
+function onSummaryChange(){
+  // 摘要"当前周"→ 图表终止周；摘要"对比周"→ 图表起始周
+  const thisWn=parseInt(document.getElementById('sel-summary-this').value||0);
+  const vsWn=parseInt(document.getElementById('sel-summary-vs').value||0);
+  const se=document.getElementById('sel-week-end');
+  const ss=document.getElementById('sel-week-start');
+  if(se&&thisWn)se.value=thisWn;
+  if(ss&&vsWn)ss.value=vsWn;
+  // also sync sel-summary-vs if needed
+  renderWeekly();
+}
 function onWeekRangeChange(){
   const ss=document.getElementById('sel-week-start'),se=document.getElementById('sel-week-end');
   if(parseInt(ss.value)>parseInt(se.value))se.value=ss.value;
@@ -491,7 +504,7 @@ function renderDaily(){
   let recent=data;
   if(startVal&&endVal)recent=data.filter(r=>{const d=parseDate(r['时间']);return d&&localStr(d)>=startVal&&localStr(d)<=endVal});
 
-  const allDates=[...new Set(recent.map(r=>{const d=parseDate(r['时间']);return d?localStr(d):null}).filter(Boolean))].sort();
+  const allDates=[...new Set(recent.map(r=>{const d=parseDate(r['时间']);return d?localStr(d):null}).filter(Boolean))].sort().reverse(); // 最新日期在上
   const channels=[...new Set(recent.map(r=>normCh(r['渠道'])).filter(Boolean))];
   const chOrder={SEM:0,FEEDS:1};
   const sortedCh=[...channels].sort((a,b)=>(chOrder[a]??99)-(chOrder[b]??99));

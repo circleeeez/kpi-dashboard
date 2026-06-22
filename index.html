@@ -288,6 +288,15 @@ function parseDate(s){
   return null;
 }
 function localStr(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+// 给定周数，从RAW全量数据里反查该周实际覆盖的日期范围，避免跨年/算法误差，直接以数据为准
+function weekDateRange(wn){
+  const dates=RAW.map(r=>parseDate(r['时间'])).filter(d=>d&&isoWeek(d)===wn);
+  if(!dates.length)return'';
+  const min=new Date(Math.min(...dates.map(d=>d.getTime())));
+  const max=new Date(Math.max(...dates.map(d=>d.getTime())));
+  return`${fmtDate(min)}~${fmtDate(max)}`;
+}
+function weekLabel(wn){const r=weekDateRange(wn);return r?`W${wn}（${r}）`:`W${wn}`}
 function fmtDate(d){return`${d.getMonth()+1}/${d.getDate()}`}
 
 function fmt(v,kpi){
@@ -455,7 +464,7 @@ function populateWeekSels(){
   const weekSet=new Set();
   RAW.forEach(r=>{const d=parseDate(r['时间']);if(d)weekSet.add(isoWeek(d))});
   const allWeeks=[...weekSet].sort((a,b)=>a-b);
-  const opts=allWeeks.map(w=>`<option value="${w}">W${w}</option>`).join('');
+  const opts=allWeeks.map(w=>`<option value="${w}">${weekLabel(w)}</option>`).join('');
 
   ['sel-week-start','sel-week-end'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.innerHTML=opts;
@@ -702,6 +711,7 @@ function renderWeekly(){
   const chOrder={SEM:0,FEEDS:1};
   const sortedCh=[...channels].sort((a,b)=>(chOrder[a]??99)-(chOrder[b]??99));
   const labels=visibleWeeks.map(w=>`W${w}`);
+  const labelsFull=visibleWeeks.map(w=>weekLabel(w));
 
   function wAgg(wn,ch,kpi){return aggVal(data.filter(r=>{const d=parseDate(r['时间']);return d&&isoWeek(d)===wn&&normCh(r['渠道'])===ch}),kpi)}
   function wTotal(wn,kpi){return aggVal(data.filter(r=>{const d=parseDate(r['时间']);return d&&isoWeek(d)===wn}),kpi)}
@@ -752,7 +762,10 @@ function renderWeekly(){
         plugins:{legend:{display:false},tooltip:{
           backgroundColor:'#fff',borderColor:'#e5e7eb',borderWidth:1,
           titleColor:'#6b7280',bodyColor:'#111827',padding:10,
-          callbacks:{label:ctx=>`  ${ctx.dataset.label}: ${fmt(ctx.raw,kpi)}`}
+          callbacks:{
+            title:items=>labelsFull[items[0].dataIndex],
+            label:ctx=>`  ${ctx.dataset.label}: ${fmt(ctx.raw,kpi)}`
+          }
         }},
         scales:{
           x:{ticks:{color:'#9ca3af',font:{size:10}},grid:{color:'#f3f4f6'}},
@@ -773,7 +786,7 @@ function renderWeekly(){
       const chColor=CH_COLOR[ch]||'#9ca3af';const chDash=CH_DASH[ch]||[];
       const lineStyle=chDash.length?`border-top:2px dashed ${chColor};width:18px;height:0;display:inline-block`:`border-top:2.5px solid ${chColor};width:18px;height:0;display:inline-block`;
       const chLabel=`<div style="display:flex;align-items:center;gap:5px"><span style="${lineStyle}"></span><span>${ch}</span></div>`;
-      const dateTd=ci===0?`<td class="col-date" rowspan="${sortedCh.length+1}" style="vertical-align:middle;border-right:1px solid var(--border)">W${wn}</td>`:'';
+      const dateTd=ci===0?`<td class="col-date" rowspan="${sortedCh.length+1}" style="vertical-align:middle;border-right:1px solid var(--border);white-space:nowrap">${weekLabel(wn)}</td>`:'';
       let kpiCells='';
       activeWeekKPIs.forEach(kpi=>{
         const cur=wAgg(wn,ch,kpi);const prev=wi>0?wAgg(visibleWeeks[wi-1],ch,kpi):null;
@@ -811,7 +824,7 @@ function buildWeeklySummary(data,thisWn,vsWn){
   }
 
   function fmtMil(v){if(v==null||isNaN(v))return'—';return(v/1000000).toFixed(2)+'M'}
-  function fmtNum(v){if(v==null||isNaN(v))return'—';return v>=10000?(v/10000).toFixed(1)+'w':Math.round(v).toLocaleString()}
+  function fmtK(v){if(v==null||isNaN(v))return'—';return(v/1000).toFixed(1)+'K'}
   function fmtPct(cur,prev){
     if(cur==null||prev==null||prev===0)return'';
     const pct=(cur-prev)/Math.abs(prev)*100;
@@ -826,11 +839,11 @@ function buildWeeklySummary(data,thisWn,vsWn){
       <span style="font-weight:600;color:var(--accent);min-width:60px;display:inline-block">【${proj}】</span>
       消耗 <b>${fmtMil(thisCost)}</b> vs <b>${fmtMil(vsCost)}</b> ${fmtPct(thisCost,vsCost)}
       <span style="margin:0 8px;color:var(--border2)">·</span>
-      回搜 <b>${fmtNum(thisSrch)}</b> vs <b>${fmtNum(vsSrch)}</b> ${fmtPct(thisSrch,vsSrch)}
+      回搜 <b>${fmtK(thisSrch)}</b> vs <b>${fmtK(vsSrch)}</b> ${fmtPct(thisSrch,vsSrch)}
     </div>`;
   });
 
-  el.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">W${thisWn} vs W${vsWn} · 消耗单位：百万元</div>`+lines.join('');
+  el.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${weekLabel(thisWn)} vs ${weekLabel(vsWn)} · 消耗单位：百万元，回搜单位：千次</div>`+lines.join('');
 }
 
 /* ── Wiring ── */

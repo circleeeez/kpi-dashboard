@@ -122,6 +122,10 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
 .week-preset{background:#fff;border:1px solid var(--border);color:var(--text2);padding:3px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;transition:all .15s}
 .week-preset:hover{border-color:var(--accent);color:var(--accent)}
 
+/* KPI quick select buttons */
+.kpi-quick-btn{background:var(--bg2);border:1px dashed var(--border2);color:var(--text2);padding:4px 11px;border-radius:20px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap}
+.kpi-quick-btn:hover{border-color:var(--accent);color:var(--accent);border-style:solid}
+
 .no-data{padding:40px;text-align:center;color:var(--text3);font-size:13px}
 #loading{display:none;position:fixed;inset:0;background:rgba(255,255,255,.85);align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:10px}
 #loading.show{display:flex}
@@ -174,7 +178,13 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
 
     <!-- ══ Daily ══ -->
     <div id="view-daily" data-export-name="日趋势">
-      <div class="kpi-row" id="daily-kpi-pills" style="margin-bottom:12px"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <div class="kpi-row" id="daily-kpi-pills" style="margin-bottom:0"></div>
+        <div style="display:flex;gap:4px">
+          <button class="kpi-quick-btn" onclick="selectAllKPI('daily')">全选</button>
+          <button class="kpi-quick-btn" onclick="clearAllKPI('daily')">清除</button>
+        </div>
+      </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <span style="font-size:12px;color:var(--text2)">日期范围：</span>
         <input type="date" id="daily-date-start" onchange="onDailyRangeChange()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;color:var(--text);background:#fff;cursor:pointer">
@@ -233,7 +243,13 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
       <!-- 统一KPI多选 -->
       <div class="card" style="border-radius:0;border-top:1px dashed var(--border);margin-top:0;margin-bottom:0;border-bottom:none">
         <div class="section-label" style="margin-bottom:8px">选择指标 <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0">（可多选，图表和表格同步显示）</span></div>
-        <div class="kpi-row" id="weekly-kpi-pills"></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="kpi-row" id="weekly-kpi-pills"></div>
+          <div style="display:flex;gap:4px">
+            <button class="kpi-quick-btn" onclick="selectAllKPI('weekly')">全选</button>
+            <button class="kpi-quick-btn" onclick="clearAllKPI('weekly')">清除</button>
+          </div>
+        </div>
       </div>
 
       <!-- 图表区：每个选中KPI各画一张小图，并排显示 -->
@@ -422,18 +438,10 @@ function initDashboard(){
   }
 
   // Build daily KPI pills
-  document.getElementById('daily-kpi-pills').innerHTML=ALL_KPIS.map(k=>`
-    <label class="kpi-pill${activeKPIs.includes(k)?' active':''}">
-      <input type="checkbox" ${activeKPIs.includes(k)?'checked':''} onchange="toggleKPI('daily','${k}',this)">
-      ${k}
-    </label>`).join('');
+  renderDailyKPIPills();
 
   // Build weekly KPI pills（统一多选：图表小图阵列 + 表格都跟着这套选择走）
-  document.getElementById('weekly-kpi-pills').innerHTML=WEEK_KPIS.map(k=>`
-    <label class="kpi-pill${activeWeekKPIs.includes(k)?' active':''}" data-kpi="${k}">
-      <input type="checkbox" ${activeWeekKPIs.includes(k)?'checked':''} onchange="toggleKPI('weekly','${k}',this)">
-      ${k}
-    </label>`).join('');
+  renderWeeklyKPIPills();
 
   // Build alert KPI dropdown（波动预警单选一个指标看，避免一次性铺开太长）
   const alertSel=document.getElementById('alert-kpi-sel');
@@ -447,14 +455,40 @@ function initDashboard(){
   render();
 }
 
+function renderDailyKPIPills(){
+  document.getElementById('daily-kpi-pills').innerHTML=ALL_KPIS.map(k=>`
+    <label class="kpi-pill${activeKPIs.includes(k)?' active':''}">
+      <input type="checkbox" ${activeKPIs.includes(k)?'checked':''} onchange="toggleKPI('daily','${k}',this)">
+      ${k}
+    </label>`).join('');
+}
+function renderWeeklyKPIPills(){
+  document.getElementById('weekly-kpi-pills').innerHTML=WEEK_KPIS.map(k=>`
+    <label class="kpi-pill${activeWeekKPIs.includes(k)?' active':''}" data-kpi="${k}">
+      <input type="checkbox" ${activeWeekKPIs.includes(k)?'checked':''} onchange="toggleKPI('weekly','${k}',this)">
+      ${k}
+    </label>`).join('');
+}
+
+function selectAllKPI(tab){
+  if(tab==='daily'){activeKPIs=[...ALL_KPIS];renderDailyKPIPills();}
+  else{activeWeekKPIs=[...WEEK_KPIS];renderWeeklyKPIPills();}
+  render();
+}
+function clearAllKPI(tab){
+  if(tab==='daily'){activeKPIs=[];renderDailyKPIPills();}
+  else{activeWeekKPIs=[];renderWeeklyKPIPills();}
+  render();
+}
+
 function toggleKPI(tab,kpi,cb){
   if(tab==='daily'){
     if(cb.checked){if(!activeKPIs.includes(kpi))activeKPIs.push(kpi)}
-    else{if(activeKPIs.length>1)activeKPIs=activeKPIs.filter(k=>k!==kpi);else{cb.checked=true;return}}
+    else{activeKPIs=activeKPIs.filter(k=>k!==kpi)}
     cb.closest('.kpi-pill').classList.toggle('active',cb.checked);
   } else {
     if(cb.checked){if(!activeWeekKPIs.includes(kpi))activeWeekKPIs.push(kpi)}
-    else{if(activeWeekKPIs.length>1)activeWeekKPIs=activeWeekKPIs.filter(k=>k!==kpi);else{cb.checked=true;return}}
+    else{activeWeekKPIs=activeWeekKPIs.filter(k=>k!==kpi)}
     cb.closest('.kpi-pill').classList.toggle('active',cb.checked);
   }
   render();

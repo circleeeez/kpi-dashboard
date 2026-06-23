@@ -118,6 +118,17 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
 .tag-dn{color:var(--success);font-family:'DM Mono',monospace;font-size:12px}
 .no-alert{padding:14px 4px;color:var(--success);font-size:13px;display:flex;align-items:center;gap:6px}
 
+/* Data completeness banner */
+.completeness-card{border-radius:var(--radius-lg);padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.completeness-card.has-issue{background:var(--warn-bg);border:1px solid #fde68a}
+.completeness-card.all-good{background:var(--success-bg);border:1px solid #a7f3d0}
+.completeness-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.completeness-title.has-issue{color:#92400e}
+.completeness-title.all-good{color:var(--success)}
+.completeness-list{display:flex;flex-wrap:wrap;gap:6px}
+.completeness-pill{font-size:11px;padding:3px 9px;border-radius:14px;background:#fff;border:1px solid #fde68a;color:#92400e;font-family:'DM Mono',monospace;white-space:nowrap}
+.completeness-sub{font-size:11px;color:#92400e;opacity:.75}
+
 /* Presets */
 .week-preset{background:#fff;border:1px solid var(--border);color:var(--text2);padding:3px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;transition:all .15s}
 .week-preset:hover{border-color:var(--accent);color:var(--accent)}
@@ -169,6 +180,9 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
   </div>
 
   <div class="main">
+
+    <!-- 数据完整性提醒：基于回搜量检查最近两天哪些项目+渠道可能还没更新完 -->
+    <div id="completeness-wrap" style="margin-bottom:14px"></div>
 
     <!-- Tabs -->
     <div class="view-tabs">
@@ -452,7 +466,71 @@ function initDashboard(){
   populateWeekSels();
   document.getElementById('upload-screen').style.display='none';
   document.getElementById('dashboard').style.display='flex';
+  checkDataCompleteness();
   render();
+}
+
+/* ── 数据完整性检查：基于「回搜量」检查最近两天，哪些【项目+渠道】可能还没更新完 ── */
+function checkDataCompleteness(){
+  const wrap=document.getElementById('completeness-wrap');
+  if(!wrap)return;
+
+  // 全量数据里实际存在的日期，取最新2天（不受项目/渠道筛选器影响，这是全局健康检查）
+  const allDatesRaw=[...new Set(RAW.map(r=>{const d=parseDate(r['时间']);return d?localStr(d):null}).filter(Boolean))].sort();
+  const checkDates=allDatesRaw.slice(-2); // 最新两天
+  if(!checkDates.length){wrap.innerHTML='';return}
+
+  // 全量【项目+渠道】组合
+  const combos=new Set();
+  RAW.forEach(r=>{
+    const proj=r['来源项目'],ch=normCh(r['渠道']);
+    if(proj&&ch)combos.add(proj+'__'+ch);
+  });
+
+  const issues=[]; // {proj, ch, date, reason}
+  combos.forEach(key=>{
+    const [proj,ch]=key.split('__');
+    checkDates.forEach(dt=>{
+      const rows=RAW.filter(r=>{
+        const d=parseDate(r['时间']);
+        return d&&localStr(d)===dt&&r['来源项目']===proj&&normCh(r['渠道'])===ch;
+      });
+      if(!rows.length)return; // 这天这个组合本来就没有行，不算"未更新"，可能是没投放
+      const srch=rows.reduce((sum,r)=>{
+        const v=parseFloat(r['回搜量']);
+        return sum+(isNaN(v)?0:v);
+      },0);
+      const hasVal=rows.some(r=>r['回搜量']!=null&&r['回搜量']!=='');
+      if(!hasVal||srch===0){
+        issues.push({proj,ch,date:dt});
+      }
+    });
+  });
+
+  if(!issues.length){
+    wrap.innerHTML=`<div class="completeness-card all-good">
+      <div class="completeness-title all-good">✓ 数据完整性检查通过 — 近${checkDates.length}天各账户回搜量均有数据</div>
+    </div>`;
+    return;
+  }
+
+  // 按账户去重，附上具体哪天有问题
+  const byAccount={};
+  issues.forEach(it=>{
+    const key=it.proj+'-'+it.ch;
+    if(!byAccount[key])byAccount[key]={proj:it.proj,ch:it.ch,dates:[]};
+    byAccount[key].dates.push(it.date);
+  });
+  const pills=Object.values(byAccount).map(acc=>{
+    const dateStr=acc.dates.map(d=>fmtDate(new Date(d))).join('、');
+    return`<span class="completeness-pill">${acc.proj}-${acc.ch} <span style="opacity:.7">(${dateStr})</span></span>`;
+  }).join('');
+
+  wrap.innerHTML=`<div class="completeness-card has-issue">
+    <div class="completeness-title has-issue">⚠ 可能还没更新完 — 以下账户近${checkDates.length}天回搜量为空或0</div>
+    <div class="completeness-list">${pills}</div>
+    <div class="completeness-sub">基于「回搜量」字段判断，若该账户当天本来就没有投放，可忽略此提醒</div>
+  </div>`;
 }
 
 function renderDailyKPIPills(){
@@ -539,8 +617,6 @@ function populateWeekSels(){
   }
 }
 function onWeekRangeChange(){
-  const ss=document.getElementById('sel-week-start'),se=document.getElementById('sel-week-end');
-  if(parseInt(ss.value)>parseInt(se.value))se.value=ss.value;
   renderWeekly();
 }
 function setWeekPreset(n){
@@ -781,8 +857,11 @@ function renderWeekly(){
   const weekSet=new Set();data.forEach(r=>{const d=parseDate(r['时间']);if(d)weekSet.add(isoWeek(d))});
   const allWeeks=[...weekSet].sort((a,b)=>a-b);
 
-  const startWn=parseInt(document.getElementById('sel-week-start').value||0);
-  const endWn=parseInt(document.getElementById('sel-week-end').value||0);
+  const rawStart=parseInt(document.getElementById('sel-week-start').value||0);
+  const rawEnd=parseInt(document.getElementById('sel-week-end').value||0);
+  // 不强制起始≤终止：内部自动取较小值筛范围，较大值（更近）作为摘要对比的"现在"
+  const startWn=Math.min(rawStart,rawEnd);
+  const endWn=Math.max(rawStart,rawEnd);
   const visibleWeeks=allWeeks.filter(w=>w>=startWn&&w<=endWn);
 
   const channels=[...new Set(data.map(r=>normCh(r['渠道'])).filter(Boolean))];
@@ -794,7 +873,7 @@ function renderWeekly(){
   function wAgg(wn,ch,kpi){return aggVal(data.filter(r=>{const d=parseDate(r['时间']);return d&&isoWeek(d)===wn&&normCh(r['渠道'])===ch}),kpi)}
   function wTotal(wn,kpi){return aggVal(data.filter(r=>{const d=parseDate(r['时间']);return d&&isoWeek(d)===wn}),kpi)}
 
-  // ── 摘要：直接用筛选器选的起始周 vs 终止周对比 ──
+  // ── 摘要：始终是"较新的周" vs "较早的周"，不管两个下拉选反没有 ──
   buildWeeklySummary(data,endWn,startWn);
 
   if(!visibleWeeks.length){

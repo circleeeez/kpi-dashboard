@@ -277,7 +277,9 @@ function isoWeek(d){
   const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
   t.setUTCDate(t.getUTCDate()+4-(t.getUTCDay()||7));
   const y0=new Date(Date.UTC(t.getUTCFullYear(),0,1));
-  return Math.ceil((((t-y0)/86400000)+1)/7);
+  const wn=Math.ceil((((t-y0)/86400000)+1)/7);
+  // 带年份避免跨年周数碰撞（如 2025-W52 vs 2026-W52）
+  return t.getUTCFullYear()*100+wn;
 }
 function parseDate(s){
   if(!s)return null;
@@ -296,7 +298,7 @@ function weekDateRange(wn){
   const max=new Date(Math.max(...dates.map(d=>d.getTime())));
   return`${fmtDate(min)}~${fmtDate(max)}`;
 }
-function weekLabel(wn){const r=weekDateRange(wn);return r?`W${wn}（${r}）`:`W${wn}`}
+function weekLabel(wn){const r=weekDateRange(wn);const w=wn%100;return r?`W${w}（${r}）`:`W${w}`}
 function fmtDate(d){return`${d.getMonth()+1}/${d.getDate()}`}
 
 function fmt(v,kpi){
@@ -429,7 +431,6 @@ function toggleKPI(tab,kpi,cb){
     else{if(activeWeekKPIs.length>1)activeWeekKPIs=activeWeekKPIs.filter(k=>k!==kpi);else{cb.checked=true;return}}
     cb.closest('.kpi-pill').classList.toggle('active',cb.checked);
   }
-  render();
   render();
 }
 
@@ -640,7 +641,7 @@ function renderDaily(){
       const dateTd=ci===0?`<td class="col-date" rowspan="${sortedCh.length+1}" style="vertical-align:middle;border-right:1px solid var(--border)">${label}</td>`:'';
       let kpiCells='';
       activeKPIs.forEach(kpi=>{
-        const cur=getAgg(dt,ch,kpi);const prev=di>0?getAgg(allDates[di-1],ch,kpi):null;
+        const cur=getAgg(dt,ch,kpi);const prev=di<allDates.length-1?getAgg(allDates[di+1],ch,kpi):null;
         kpiCells+=`<td>${fmt(cur,kpi)}${fmtChange(calcChange(cur,prev,kpi),kpi)}</td>`;
       });
       rows+=`<tr style="${ci===0?'border-top:2px solid var(--border)':''}">${dateTd}<td class="col-ch" style="white-space:nowrap;padding:6px 10px">${chLabel}</td>${kpiCells}</tr>`;
@@ -648,7 +649,7 @@ function renderDaily(){
     // Total row
     let totCells='';
     activeKPIs.forEach(kpi=>{
-      const cur=getDayTotal(dt,kpi);const prev=di>0?getDayTotal(allDates[di-1],kpi):null;
+      const cur=getDayTotal(dt,kpi);const prev=di<allDates.length-1?getDayTotal(allDates[di+1],kpi):null;
       totCells+=`<td style="font-weight:600;color:var(--text)">${fmt(cur,kpi)}${fmtChange(calcChange(cur,prev,kpi),kpi)}</td>`;
     });
     rows+=`<tr style="background:var(--bg2)"><td class="col-ch" style="padding:6px 10px;font-weight:600;color:var(--text2);font-size:11px">合计</td>${totCells}</tr>`;
@@ -662,9 +663,11 @@ function buildAlerts(channels,getAgg){
   const wrap=document.getElementById('alert-wrap');
   const kpi=document.getElementById('alert-kpi-sel').value||'消耗';
 
-  // 固定近7天窗口，跟「日期范围」筛选器无关，保证预警区域始终是短的
-  const today=new Date();
-  const end=new Date(today.getFullYear(),today.getMonth(),today.getDate()-1);
+  // 固定近7天窗口，以数据最新日期为基准（而非今天），避免演示数据或历史数据时预警区全空
+  const allDataDates=RAW.map(r=>parseDate(r['时间'])).filter(Boolean);
+  if(!allDataDates.length){wrap.innerHTML='<div class="no-alert">暂无数据</div>';return}
+  const maxDate=new Date(Math.max(...allDataDates.map(d=>d.getTime())));
+  const end=new Date(maxDate.getFullYear(),maxDate.getMonth(),maxDate.getDate());
   const start=new Date(end);start.setDate(end.getDate()-7); // 多取1天用于算第一天的环比
   const win=[];
   for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1))win.push(localStr(d));
@@ -710,7 +713,7 @@ function renderWeekly(){
   const channels=[...new Set(data.map(r=>normCh(r['渠道'])).filter(Boolean))];
   const chOrder={SEM:0,FEEDS:1};
   const sortedCh=[...channels].sort((a,b)=>(chOrder[a]??99)-(chOrder[b]??99));
-  const labels=visibleWeeks.map(w=>`W${w}`);
+  const labels=visibleWeeks.map(w=>`W${w%100}`);
   const labelsFull=visibleWeeks.map(w=>weekLabel(w));
 
   function wAgg(wn,ch,kpi){return aggVal(data.filter(r=>{const d=parseDate(r['时间']);return d&&isoWeek(d)===wn&&normCh(r['渠道'])===ch}),kpi)}

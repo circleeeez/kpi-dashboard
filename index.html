@@ -302,19 +302,25 @@ function weekLabel(wn){const r=weekDateRange(wn);const w=wn%100;return r?`W${w}�
 function fmtDate(d){return`${d.getMonth()+1}/${d.getDate()}`}
 
 function fmt(v,kpi){
-  if(v==null||isNaN(v))return'—';
+  if(v==null||isNaN(v)||!isFinite(v))return'—';
   if(['CTR','回搜率','当日回搜率'].includes(kpi))return(v*100).toFixed(2)+'%';
   if(['CPC','CPE','CPM','CPS','JD店铺成本','当日回搜成本'].includes(kpi))return'¥'+v.toFixed(2);
   return v>=10000?(v/10000).toFixed(1)+'w':Math.round(v).toLocaleString();
 }
 
 function sumCol(rows,col){
-  const vals=rows.map(r=>parseFloat(r[col])).filter(v=>!isNaN(v));
+  const vals=rows.map(r=>parseFloat(r[col])).filter(v=>!isNaN(v)&&isFinite(v));
   return vals.length?vals.reduce((a,b)=>a+b,0):null;
 }
 
 function aggVal(rows,kpi){
   if(!rows.length)return null;
+  // 只有1行（选中单个项目时，同一天同一渠道必然只有1行）：直接读Excel原始值，不做任何计算
+  if(rows.length===1){
+    const v=parseFloat(rows[0][kpi]);
+    return(isNaN(v)||!isFinite(v))?null:v;
+  }
+  // 多行（选"全部项目"时多个项目叠加）：才用公式聚合，比率类字段先加总分子分母再算比值
   switch(kpi){
     case '消耗':         return sumCol(rows,'消耗');
     case '展现量':       return sumCol(rows,'展现量');
@@ -361,29 +367,45 @@ function showLoading(v){document.getElementById('loading').classList.toggle('sho
 
 function loadDemo(){
   showLoading(true);
-  const projs=['PHP','LINGYI','NS'],chs=['SEM','FEEDS','发现页'],rows=[];
-  const now=new Date('2026-06-02');
-  for(let d=55;d>=0;d--){
-    const dt=new Date(now);dt.setDate(now.getDate()-d);
-    for(const proj of projs)for(const ch of chs){
-      const base={SEM:9000,FEEDS:5500,'发现页':3200}[ch];
-      const spike=Math.random()<0.06?1.5+Math.random()*.8:1;
-      const clk=Math.floor(800+Math.random()*400);
-      const imp=Math.floor(clk/(0.02+Math.random()*0.02));
-      const srch=Math.floor(clk*(0.06+Math.random()*.1));
-      const dsrch=Math.floor(clk*(0.05+Math.random()*.08));
-      const cost=+(base+(Math.random()-.5)*2000)*spike;
-      const jdSpend=+(cost*0.15+Math.random()*500);
-      const jdActions=Math.floor(jdSpend/(80+Math.random()*45));
-      rows.push({渠道:ch,时间:dt,消耗:cost,
-        点击量:clk,展现量:imp,
-        回搜量:srch,当日回搜量:dsrch,
-        小红盟消耗:jdSpend,'JD站外行为量':jdActions,
-        来源项目:proj});
+  try{
+    const projs=['PHP','LINGYI','NS'],chs=['SEM','FEEDS','发现页'],rows=[];
+    const now=new Date(2026,5,2); // 用本地时间构造，避免任何时区解析问题
+    for(let d=55;d>=0;d--){
+      const dt=new Date(now.getFullYear(),now.getMonth(),now.getDate()-d);
+      for(const proj of projs){
+        for(const ch of chs){
+          const base={SEM:9000,FEEDS:5500,'发现页':3200}[ch];
+          const spike=Math.random()<0.06?1.5+Math.random()*.8:1;
+          const clk=Math.max(1,Math.floor(800+Math.random()*400));
+          const ctrBase=0.02+Math.random()*0.02;
+          const imp=Math.max(clk,Math.floor(clk/ctrBase));
+          const srch=Math.max(0,Math.floor(clk*(0.06+Math.random()*.1)));
+          const dsrch=Math.max(0,Math.floor(clk*(0.05+Math.random()*.08)));
+          const cost=Math.max(1,+((base+(Math.random()-.5)*2000)*spike).toFixed(2));
+          const jdSpend=Math.max(1,+((cost*0.15)+Math.random()*500).toFixed(2));
+          const jdActions=Math.max(1,Math.floor(jdSpend/(80+Math.random()*45)));
+          rows.push({
+            渠道:String(ch),
+            时间:new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()),
+            消耗:cost,点击量:clk,展现量:imp,
+            回搜量:srch,当日回搜量:dsrch,
+            小红盟消耗:jdSpend,'JD站外行为量':jdActions,
+            来源项目:String(proj)
+          });
+        }
+      }
     }
+    RAW=rows;
+    setTimeout(()=>{
+      try{initDashboard();}
+      catch(err){console.error('演示数据初始化失败:',err);alert('演示数据加载出错: '+(err.message||err));}
+      finally{showLoading(false);}
+    },300);
+  }catch(err){
+    console.error('生成演示数据失败:',err);
+    showLoading(false);
+    alert('生成演示数据出错: '+(err.message||err));
   }
-  RAW=rows;
-  setTimeout(()=>{initDashboard();showLoading(false);},300);
 }
 
 /* ── Init ── */
@@ -552,7 +574,19 @@ function switchTab(tab,el){
   document.getElementById('view-weekly').style.display=tab==='weekly'?'':'none';
   render();
 }
-function render(){if(activeTab==='daily')renderDaily();else renderWeekly()}
+function render(){
+  try{
+    if(activeTab==='daily')renderDaily();else renderWeekly();
+  }catch(err){
+    console.error('渲染出错:',err);
+    const wrapId=activeTab==='daily'?'daily-table-wrap':'weekly-table-wrap';
+    const el=document.getElementById(wrapId);
+    if(el)el.innerHTML=`<div class="no-data">渲染出错：${err.message||err}<br><span style="font-size:11px;color:var(--text3)">请尝试点击"查看演示数据效果"重新加载，或检查上传的xlsx文件格式</span></div>`;
+  }
+}
+window.addEventListener('error',function(e){
+  console.error('全局捕获错误:',e.message,e.filename,e.lineno,e.error);
+});
 
 /* ══════════════════════════════════
    DAILY
@@ -598,23 +632,26 @@ function renderDaily(){
   const chronoDates=allDates.slice().reverse();
   const chronoLabels=chronoDates.map(dt=>fmtDate(new Date(dt)));
 
-  gridEl.innerHTML=activeKPIs.map(kpi=>`
+  gridEl.innerHTML=activeKPIs.map((kpi,ki)=>`
     <div class="chart-grid-item">
       <div class="chart-grid-title">${kpi}</div>
-      <div class="chart-grid-wrap"><canvas id="daily-chart-${kpi.replace(/[^a-zA-Z0-9]/g,'_')}"></canvas></div>
+      <div class="chart-grid-wrap"><canvas id="daily-chart-${ki}"></canvas></div>
     </div>`).join('');
 
-  activeKPIs.forEach(kpi=>{
-    const canvasId='daily-chart-'+kpi.replace(/[^a-zA-Z0-9]/g,'_');
+  activeKPIs.forEach((kpi,ki)=>{
+    const canvasId='daily-chart-'+ki;
+    const canvasEl=document.getElementById(canvasId);
+    if(!canvasEl)return; // 防御：DOM还没渲染出对应canvas就跳过，避免Chart.js内部报错
     const datasets=[];let lineIdx=0;
     sortedCh.forEach(ch=>{
       const col=LINE_PALETTE[lineIdx%LINE_PALETTE.length];lineIdx++;
       const dash=CH_DASH[ch]||[];
-      const rawData=chronoDates.map(dt=>getAgg(dt,ch,kpi));
+      const rawData=chronoDates.map(dt=>{const v=getAgg(dt,ch,kpi);return(v==null||isNaN(v))?null:v});
       datasets.push({label:ch,data:rawData,borderColor:col,backgroundColor:col+'18',borderWidth:2,
         pointRadius:2,pointHoverRadius:5,borderDash:dash,tension:.3,fill:false,spanGaps:true});
     });
-    const chart=new Chart(document.getElementById(canvasId),{
+    const existing=Chart.getChart(canvasEl);if(existing)existing.destroy(); // 双重保险：销毁该canvas上可能残留的旧实例
+    const chart=new Chart(canvasEl,{
       type:'line',data:{labels:chronoLabels,datasets},
       options:{responsive:true,maintainAspectRatio:false,
         interaction:{mode:'index',intersect:false},
@@ -746,23 +783,26 @@ function renderWeekly(){
   // ── 小图阵列：每个选中的KPI各画一张独立小图，量级不同也不会互相打架 ──
   weekCharts.forEach(c=>c.destroy());weekCharts=[];
   const gridEl=document.getElementById('week-chart-grid');
-  gridEl.innerHTML=activeWeekKPIs.map(kpi=>`
+  gridEl.innerHTML=activeWeekKPIs.map((kpi,ki)=>`
     <div class="chart-grid-item">
       <div class="chart-grid-title">${kpi}</div>
-      <div class="chart-grid-wrap"><canvas id="week-chart-${kpi.replace(/[^a-zA-Z0-9]/g,'_')}"></canvas></div>
+      <div class="chart-grid-wrap"><canvas id="week-chart-${ki}"></canvas></div>
     </div>`).join('');
 
-  activeWeekKPIs.forEach(kpi=>{
-    const canvasId='week-chart-'+kpi.replace(/[^a-zA-Z0-9]/g,'_');
+  activeWeekKPIs.forEach((kpi,ki)=>{
+    const canvasId='week-chart-'+ki;
+    const canvasEl=document.getElementById(canvasId);
+    if(!canvasEl)return; // 防御：DOM还没渲染出对应canvas就跳过
     const datasets=[];let lineIdx=0;
     sortedCh.forEach(ch=>{
       const col=LINE_PALETTE[lineIdx%LINE_PALETTE.length];lineIdx++;
       const dash=CH_DASH[ch]||[];
-      const rawData=visibleWeeks.map(wn=>wAgg(wn,ch,kpi));
+      const rawData=visibleWeeks.map(wn=>{const v=wAgg(wn,ch,kpi);return(v==null||isNaN(v))?null:v});
       datasets.push({label:ch,data:rawData,borderColor:col,backgroundColor:col+'18',borderWidth:2,
         pointRadius:3,pointHoverRadius:5,borderDash:dash,tension:.3,fill:false,spanGaps:true});
     });
-    const chart=new Chart(document.getElementById(canvasId),{
+    const existing=Chart.getChart(canvasEl);if(existing)existing.destroy(); // 双重保险
+    const chart=new Chart(canvasEl,{
       type:'line',data:{labels,datasets},
       options:{responsive:true,maintainAspectRatio:false,
         interaction:{mode:'index',intersect:false},

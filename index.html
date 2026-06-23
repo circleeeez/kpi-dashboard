@@ -152,8 +152,8 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
   <div class="u-title">拖入 <b>xlsx 文件</b><br>自动生成看板</div>
   <div class="drop-zone" id="drop-zone">
     <div class="drop-icon">⬆</div>
-    <div class="drop-main">点击选择或拖拽文件到此</div>
-    <div class="drop-sub">支持 .xlsx 格式，字段自动识别</div>
+    <div class="drop-main">点击选择文件（推荐）或拖拽到此</div>
+    <div class="drop-sub">支持 .xlsx 格式，字段自动识别<br><span style="color:var(--accent)">点击选择</span>后可一键刷新最新数据，无需重新选择</div>
     <div class="drop-hint">渠道 · 时间 · 来源项目 · 消耗 · CTR · CPC · 回搜量 · 回搜率 · CPS · JD店铺成本 · 当日回搜量</div>
     <input type="file" id="file-input" accept=".xlsx,.xls">
   </div>
@@ -175,9 +175,10 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
       <div class="data-info" id="data-info"></div>
       <button class="reload-btn" id="export-img-btn" onclick="exportAsImage()">⬇ 导出图片</button>
       <button class="reload-btn" id="export-xlsx-btn" onclick="exportAsExcel()">⬇ 导出Excel</button>
-      <button class="reload-btn" onclick="reloadFile()">↺ 更新数据</button>
+      <button class="reload-btn" id="update-data-btn" onclick="smartUpdateData()">↺ 更新数据</button>
     </div>
   </div>
+  <div id="file-bind-info" style="padding:0 24px;font-size:11px;color:var(--text3);display:none"></div>
 
   <div class="main">
 
@@ -284,6 +285,8 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
 
 <script>
 let RAW=[];
+let fileHandle=null; // File System Access API 句柄：记住选过的文件，刷新时无需重新选择
+let lastLoadedAt=null; // 上次成功读取的时间，用于"数据更新"提示
 let activeTab='daily';
 let activeKPIs=['消耗','CPC','当日回搜量','当日回搜成本'];
 let activeWeekKPIs=['消耗','CPC','回搜量','CPS'];   // 周维度：统一多选，图表小图阵列 + 表格都用这个
@@ -388,11 +391,59 @@ function readFile(file){
   showLoading(true);
   const r=new FileReader();
   r.onload=e=>{
-    try{const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];RAW=XLSX.utils.sheet_to_json(ws,{defval:null});initDashboard()}
-    catch(err){alert('解析失败：'+err.message)}
+    parseAndLoad(e.target.result);
     showLoading(false);
-  };r.readAsArrayBuffer(file);
+  };
+  r.onerror=()=>{alert('文件读取失败');showLoading(false)};
+  r.readAsArrayBuffer(file);
 }
+
+function parseAndLoad(arrayBuffer){
+  try{
+    const wb=XLSX.read(arrayBuffer,{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    RAW=XLSX.utils.sheet_to_json(ws,{defval:null});
+    lastLoadedAt=new Date();
+    initDashboard();
+  }catch(err){
+    alert('解析失败：'+err.message);
+  }
+}
+
+// 用 File System Access API 打开文件，记住句柄，之后刷新无需重新选择
+async function openFileWithHandle(){
+  if(!window.showOpenFilePicker){
+    // 浏览器不支持（如 Firefox/Safari），回退到传统选择框
+    reloadFile();
+    return;
+  }
+  try{
+    const [handle]=await window.showOpenFilePicker({
+      types:[{description:'Excel文件',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],'application/vnd.ms-excel':['.xls']}}]
+    });
+    fileHandle=handle;
+    await refreshFromHandle();
+  }catch(err){
+    if(err.name!=='AbortError')console.error('选择文件出错:',err);
+  }
+}
+
+// 用已记住的句柄重新读取文件最新内容（无需用户再次选择）
+async function refreshFromHandle(){
+  if(!fileHandle){openFileWithHandle();return}
+  showLoading(true);
+  try{
+    const file=await fileHandle.getFile();
+    const buf=await file.arrayBuffer();
+    parseAndLoad(buf);
+  }catch(err){
+    alert('刷新失败，可能文件已被移动或删除，请重新选择：'+err.message);
+    fileHandle=null;
+  }finally{
+    showLoading(false);
+  }
+}
+
 function showLoading(v){document.getElementById('loading').classList.toggle('show',v)}
 
 function loadDemo(){
@@ -467,7 +518,24 @@ function initDashboard(){
   document.getElementById('upload-screen').style.display='none';
   document.getElementById('dashboard').style.display='flex';
   checkDataCompleteness();
+  updateFileBindInfo();
   render();
+}
+
+// 更新"已绑定文件"提示和按钮文案：有句柄时显示文件名+上次刷新时间，按钮变成"刷新最新数据"
+function updateFileBindInfo(){
+  const infoEl=document.getElementById('file-bind-info');
+  const btnEl=document.getElementById('update-data-btn');
+  if(!infoEl||!btnEl)return;
+  if(fileHandle){
+    const timeStr=lastLoadedAt?lastLoadedAt.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
+    infoEl.style.display='block';
+    infoEl.innerHTML=`📎 已绑定文件：<b style="color:var(--text2)">${fileHandle.name}</b> · 上次刷新 ${timeStr} · <a href="javascript:void(0)" onclick="openFileWithHandle()" style="color:var(--accent)">更换文件</a>`;
+    btnEl.innerHTML='↻ 刷新最新数据';
+  }else{
+    infoEl.style.display='none';
+    btnEl.innerHTML='↺ 更新数据';
+  }
 }
 
 /* ── 数据完整性检查：基于「回搜量」检查最近两天，哪些【项目+渠道】可能还没更新完 ── */
@@ -638,6 +706,12 @@ function filtered(){
   });
 }
 function reloadFile(){const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls';inp.onchange=e=>{if(e.target.files[0])readFile(e.target.files[0])};inp.click()}
+
+// 顶部"更新数据"按钮统一入口：已有句柄→直接刷新最新内容；没有→走File System Access API选择（不支持则回退传统选择框）
+function smartUpdateData(){
+  if(fileHandle){refreshFromHandle();}
+  else{openFileWithHandle();}
+}
 
 function getActiveViewEl(){
   return activeTab==='daily'?document.getElementById('view-daily'):document.getElementById('view-weekly');
@@ -1008,11 +1082,14 @@ function buildWeeklySummary(data,thisWn,vsWn){
 
 /* ── Wiring ── */
 const dz=document.getElementById('drop-zone'),fi=document.getElementById('file-input');
-dz.addEventListener('click',()=>fi.click());
+dz.addEventListener('click',()=>{
+  if(window.showOpenFilePicker)openFileWithHandle(); // 支持的浏览器：直接拿可复用句柄
+  else fi.click(); // 不支持（Firefox/Safari等）：回退传统选择框
+});
 fi.addEventListener('change',e=>{if(e.target.files[0])readFile(e.target.files[0])});
 dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover')});
 dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
-dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)readFile(f)});
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)readFile(f)}); // 拖拽方式无法获取持久句柄，仅读取一次内容
 </script>
 </body>
 </html>

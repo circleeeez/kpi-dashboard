@@ -372,10 +372,14 @@ function loadDemo(){
       const imp=Math.floor(clk/(0.02+Math.random()*0.02));
       const srch=Math.floor(clk*(0.06+Math.random()*.1));
       const dsrch=Math.floor(clk*(0.05+Math.random()*.08));
-      rows.push({渠道:ch,时间:dt,消耗:+(base+(Math.random()-.5)*2000)*spike,
+      const cost=+(base+(Math.random()-.5)*2000)*spike;
+      const jdSpend=+(cost*0.15+Math.random()*500);
+      const jdActions=Math.floor(jdSpend/(80+Math.random()*45));
+      rows.push({渠道:ch,时间:dt,消耗:cost,
         点击量:clk,展现量:imp,
         回搜量:srch,当日回搜量:dsrch,
-        CPS:+(55+Math.random()*35),'JD店铺成本':+(80+Math.random()*45),来源项目:proj});
+        小红盟消耗:jdSpend,'JD站外行为量':jdActions,
+        来源项目:proj});
     }
   }
   RAW=rows;

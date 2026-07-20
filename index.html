@@ -143,6 +143,53 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
 .spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{color:var(--text2);font-size:13px}
+
+/* AI Agent */
+#ai-fab{position:fixed;right:24px;bottom:24px;width:52px;height:52px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(37,99,235,.35);z-index:200;display:flex;align-items:center;justify-content:center;transition:all .2s}
+#ai-fab:hover{transform:scale(1.06);box-shadow:0 6px 20px rgba(37,99,235,.45)}
+
+#ai-panel{position:fixed;right:24px;bottom:88px;width:380px;max-width:calc(100vw - 32px);max-height:min(560px,70vh);background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:0 12px 32px rgba(0,0,0,.16);display:flex;flex-direction:column;z-index:200;opacity:0;visibility:hidden;pointer-events:none;transform:translateY(12px);transition:opacity .2s,transform .2s}
+#ai-panel.open{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0)}
+
+.ai-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.ai-title{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
+.ai-badge{font-size:10px;font-weight:500;color:var(--accent);background:var(--accent-bg);padding:2px 7px;border-radius:10px;font-family:'DM Mono',monospace}
+.ai-close{background:none;border:none;color:var(--text3);font-size:14px;cursor:pointer;padding:2px 7px;border-radius:5px;transition:all .15s}
+.ai-close:hover{color:var(--text);background:var(--bg2)}
+
+.ai-key-wrap{padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0}
+.ai-key-row{display:flex;gap:6px}
+.ai-key-input{flex:1;min-width:0;border:1px solid var(--border2);border-radius:6px;padding:6px 9px;font-size:12px;font-family:'DM Mono',monospace;outline:none;transition:border-color .15s}
+.ai-key-input:focus{border-color:var(--accent)}
+.ai-key-btn{background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:background .15s}
+.ai-key-btn:hover{background:#1d4fd8}
+.ai-key-hint{font-size:10.5px;color:var(--text3);margin-top:6px;line-height:1.5}
+.ai-key-hint a{color:var(--accent);text-decoration:none}
+.ai-key-hint a:hover{text-decoration:underline}
+
+.ai-ctx{font-size:11px;color:var(--text3);padding:8px 16px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;background:#fff;flex-shrink:0}
+
+.ai-messages{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px;min-height:120px}
+.ai-msg{font-size:13px;line-height:1.6;padding:8px 12px;border-radius:10px;max-width:92%;word-break:break-word}
+.ai-msg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:2px}
+.ai-msg.assistant{align-self:flex-start;background:var(--bg2);color:var(--text);border-bottom-left-radius:2px}
+.ai-msg.thinking{align-self:flex-start;background:var(--bg2);color:var(--text3);font-style:italic}
+
+.ai-suggestions{display:flex;flex-direction:column;gap:6px;padding:0 16px 10px;flex-shrink:0}
+.ai-sug{font-size:11.5px;color:var(--accent);background:var(--accent-bg);border:1px solid #dbeafe;padding:6px 10px;border-radius:8px;cursor:pointer;transition:all .15s}
+.ai-sug:hover{background:#dbeafe}
+
+.ai-input-wrap{display:flex;gap:8px;padding:10px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.ai-textarea{flex:1;border:1px solid var(--border2);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:'DM Sans',sans-serif;resize:none;outline:none;max-height:100px;transition:border-color .15s}
+.ai-textarea:focus{border-color:var(--accent)}
+.ai-send{background:var(--accent);color:#fff;border:none;padding:0 16px;border-radius:8px;font-size:12.5px;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:background .15s}
+.ai-send:hover:not(:disabled){background:#1d4fd8}
+.ai-send:disabled{background:var(--border2);cursor:not-allowed;color:var(--text3)}
+
+@media (max-width:480px){
+  #ai-panel{right:16px;left:16px;width:auto;bottom:80px}
+  #ai-fab{right:16px;bottom:16px}
+}
 </style>
 </head>
 <body>
@@ -189,6 +236,7 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
     <div class="view-tabs">
       <div class="view-tab active" onclick="switchTab('daily',this)">日趋势</div>
       <div class="view-tab" onclick="switchTab('weekly',this)">周维度</div>
+      <div class="view-tab" onclick="switchTab('monthly',this)">月维度</div>
     </div>
 
     <!-- ══ Daily ══ -->
@@ -280,6 +328,88 @@ tr.row-warn td{background:var(--warn-bg);color:var(--warn)}
       </div>
     </div>
 
+    <!-- ══ Monthly ══ -->
+    <div id="view-monthly" data-export-name="月维度" style="display:none">
+      <div class="section-label">自然月</div>
+
+      <!-- 月范围筛选器 -->
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--text2)">月份范围：</span>
+          <select id="sel-month-start" onchange="onMonthRangeChange()" style="font-size:12px;padding:4px 8px"></select>
+          <span style="font-size:12px;color:var(--text3)">→</span>
+          <select id="sel-month-end" onchange="onMonthRangeChange()" style="font-size:12px;padding:4px 8px"></select>
+          <div style="display:flex;gap:4px;margin-left:4px">
+            <button class="week-preset" onclick="setMonthPreset(3)">近3月</button>
+            <button class="week-preset" onclick="setMonthPreset(6)">近6月</button>
+            <button class="week-preset" onclick="setMonthPreset(0)">全部</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 摘要卡 -->
+      <div class="card" style="background:var(--bg2);border-radius:var(--radius-lg) var(--radius-lg) 0 0;border-bottom:none;margin-bottom:0">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">摘要对比（终止月 vs 起始月，随上方筛选器自动更新）</div>
+        <div id="month-summary" style="font-size:13px;line-height:1.9;color:var(--text2)">
+          <span style="color:var(--text3);font-size:12px">加载数据后自动生成摘要…</span>
+        </div>
+      </div>
+
+      <!-- KPI 多选 -->
+      <div class="card" style="border-radius:0;border-top:1px dashed var(--border);margin-top:0;margin-bottom:0;border-bottom:none">
+        <div class="section-label" style="margin-bottom:8px">选择指标 <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0">（可多选，图表和表格同步显示）</span></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="kpi-row" id="monthly-kpi-pills"></div>
+          <div style="display:flex;gap:4px">
+            <button class="kpi-quick-btn" onclick="selectAllKPI('monthly')">全选</button>
+            <button class="kpi-quick-btn" onclick="clearAllKPI('monthly')">清除</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 小图阵列 -->
+      <div class="card" style="border-radius:0;border-top:1px dashed var(--border);margin-top:0;margin-bottom:0;border-bottom:none">
+        <div class="legend" id="month-legend"></div>
+        <div id="month-chart-grid" class="chart-grid"></div>
+      </div>
+
+      <!-- 表格 -->
+      <div class="card" style="border-radius:0 0 var(--radius-lg) var(--radius-lg);border-top:1px dashed var(--border);margin-top:0">
+        <div class="data-table-label" style="margin-bottom:8px">月维度明细</div>
+        <div id="monthly-table-wrap"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<button id="ai-fab" onclick="toggleAIPanel()" title="AI 数据分析">✦</button>
+<div id="ai-panel">
+  <div class="ai-header">
+    <div class="ai-title">✦ AI 数据分析 <span class="ai-badge">OpenRouter Free</span></div>
+    <button class="ai-close" onclick="toggleAIPanel()">✕</button>
+  </div>
+  <div class="ai-key-wrap" style="display:none">
+    <div class="ai-key-row">
+      <input class="ai-key-input" id="ai-key-input" type="password" placeholder="粘贴 sk-or- 开头的 Key…" oninput="onKeyInput()">
+      <button class="ai-key-btn" id="ai-key-btn" onclick="saveKey()">保存</button>
+    </div>
+    <div class="ai-key-hint">免费申请：<a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a> · 仅存在当前会话中</div>
+  </div>
+  <div class="ai-ctx" id="ai-ctx">尚未加载数据</div>
+  <div class="ai-messages" id="ai-messages">
+    <div class="ai-msg assistant" style="color:var(--text3);font-size:12px">
+      输入 OpenRouter API Key 后即可开始提问。我会基于当前看板数据进行精准分析。
+    </div>
+  </div>
+  <div class="ai-suggestions" id="ai-suggestions">
+    <div class="ai-sug" onclick="askSuggestion(this)">对比近两个月，主要变化在哪？</div>
+    <div class="ai-sug" onclick="askSuggestion(this)">哪个渠道消耗效率最高？</div>
+    <div class="ai-sug" onclick="askSuggestion(this)">CTR 和回搜率趋势如何？</div>
+  </div>
+  <div class="ai-input-wrap">
+    <textarea class="ai-textarea" id="ai-input" rows="1" placeholder="输入问题，Shift+Enter 换行…" onkeydown="onAIKey(event)" oninput="autoResize(this)"></textarea>
+    <button class="ai-send" id="ai-send" onclick="sendAIMsg()" disabled>发送</button>
   </div>
 </div>
 
@@ -289,9 +419,11 @@ let fileHandle=null; // File System Access API 句柄：记住选过的文件，
 let lastLoadedAt=null; // 上次成功读取的时间，用于"数据更新"提示
 let activeTab='daily';
 let activeKPIs=['消耗','CPC','当日回搜量','当日回搜成本'];
-let activeWeekKPIs=['消耗','CPC','回搜量','CPS'];   // 周维度：统一多选，图表小图阵列 + 表格都用这个
-let lineCharts=[];   // 日趋势：多个小图实例
-let weekCharts=[];             // 多个小图实例，切换/重渲染时统一销毁
+let activeWeekKPIs=['消耗','CPC','回搜量','CPS'];
+let activeMonthKPIs=['消耗','CPC','回搜量','CPS'];
+let lineCharts=[];
+let weekCharts=[];
+let monthCharts=[];
 
 const ALL_KPIS=['消耗','CTR','CPC','回搜量','回搜率','CPS','JD店铺成本','当日回搜量','当日回搜率','当日回搜成本'];
 const WEEK_KPIS=['消耗','CTR','CPC','回搜量','回搜率','CPS','JD店铺成本']; // 周维度不含当日回搜三项
@@ -504,17 +636,15 @@ function initDashboard(){
 
   // Build daily KPI pills
   renderDailyKPIPills();
-
-  // Build weekly KPI pills（统一多选：图表小图阵列 + 表格都跟着这套选择走）
   renderWeeklyKPIPills();
-
-  // Build alert KPI dropdown（波动预警单选一个指标看，避免一次性铺开太长）
+  renderMonthlyKPIPills();
   const alertSel=document.getElementById('alert-kpi-sel');
   alertSel.innerHTML=ALL_KPIS.map(k=>`<option value="${k}">${k}</option>`).join('');
   alertSel.value='消耗';
 
   initDailyDatePicker();
   populateWeekSels();
+  populateMonthSels();
   document.getElementById('upload-screen').style.display='none';
   document.getElementById('dashboard').style.display='flex';
   checkDataCompleteness();
@@ -615,15 +745,24 @@ function renderWeeklyKPIPills(){
       ${k}
     </label>`).join('');
 }
+function renderMonthlyKPIPills(){
+  document.getElementById('monthly-kpi-pills').innerHTML=WEEK_KPIS.map(k=>`
+    <label class="kpi-pill${activeMonthKPIs.includes(k)?' active':''}" data-kpi="${k}">
+      <input type="checkbox" ${activeMonthKPIs.includes(k)?'checked':''} onchange="toggleKPI('monthly','${k}',this)">
+      ${k}
+    </label>`).join('');
+}
 
 function selectAllKPI(tab){
   if(tab==='daily'){activeKPIs=[...ALL_KPIS];renderDailyKPIPills();}
-  else{activeWeekKPIs=[...WEEK_KPIS];renderWeeklyKPIPills();}
+  else if(tab==='weekly'){activeWeekKPIs=[...WEEK_KPIS];renderWeeklyKPIPills();}
+  else{activeMonthKPIs=[...WEEK_KPIS];renderMonthlyKPIPills();}
   render();
 }
 function clearAllKPI(tab){
   if(tab==='daily'){activeKPIs=[];renderDailyKPIPills();}
-  else{activeWeekKPIs=[];renderWeeklyKPIPills();}
+  else if(tab==='weekly'){activeWeekKPIs=[];renderWeeklyKPIPills();}
+  else{activeMonthKPIs=[];renderMonthlyKPIPills();}
   render();
 }
 
@@ -632,9 +771,13 @@ function toggleKPI(tab,kpi,cb){
     if(cb.checked){if(!activeKPIs.includes(kpi))activeKPIs.push(kpi)}
     else{activeKPIs=activeKPIs.filter(k=>k!==kpi)}
     cb.closest('.kpi-pill').classList.toggle('active',cb.checked);
-  } else {
+  } else if(tab==='weekly'){
     if(cb.checked){if(!activeWeekKPIs.includes(kpi))activeWeekKPIs.push(kpi)}
     else{activeWeekKPIs=activeWeekKPIs.filter(k=>k!==kpi)}
+    cb.closest('.kpi-pill').classList.toggle('active',cb.checked);
+  } else {
+    if(cb.checked){if(!activeMonthKPIs.includes(kpi))activeMonthKPIs.push(kpi)}
+    else{activeMonthKPIs=activeMonthKPIs.filter(k=>k!==kpi)}
     cb.closest('.kpi-pill').classList.toggle('active',cb.checked);
   }
   render();
@@ -714,10 +857,12 @@ function smartUpdateData(){
 }
 
 function getActiveViewEl(){
-  return activeTab==='daily'?document.getElementById('view-daily'):document.getElementById('view-weekly');
+  if(activeTab==='daily')return document.getElementById('view-daily');
+  if(activeTab==='weekly')return document.getElementById('view-weekly');
+  return document.getElementById('view-monthly');
 }
 function getActiveTableEl(){
-  const wrapId=activeTab==='daily'?'daily-table-wrap':'weekly-table-wrap';
+  const wrapId=activeTab==='daily'?'daily-table-wrap':activeTab==='weekly'?'weekly-table-wrap':'monthly-table-wrap';
   return document.querySelector('#'+wrapId+' table');
 }
 function todayStr(){
@@ -756,14 +901,17 @@ function switchTab(tab,el){
   document.querySelectorAll('.view-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
   document.getElementById('view-daily').style.display=tab==='daily'?'':'none';
   document.getElementById('view-weekly').style.display=tab==='weekly'?'':'none';
+  document.getElementById('view-monthly').style.display=tab==='monthly'?'':'none';
   render();
 }
 function render(){
   try{
-    if(activeTab==='daily')renderDaily();else renderWeekly();
+    if(activeTab==='daily')renderDaily();
+    else if(activeTab==='weekly')renderWeekly();
+    else renderMonthly();
   }catch(err){
     console.error('渲染出错:',err);
-    const wrapId=activeTab==='daily'?'daily-table-wrap':'weekly-table-wrap';
+    const wrapId=activeTab==='daily'?'daily-table-wrap':activeTab==='weekly'?'weekly-table-wrap':'monthly-table-wrap';
     const el=document.getElementById(wrapId);
     if(el)el.innerHTML=`<div class="no-data">渲染出错：${err.message||err}<br><span style="font-size:11px;color:var(--text3)">请尝试点击"查看演示数据效果"重新加载，或检查上传的xlsx文件格式</span></div>`;
   }
@@ -871,7 +1019,7 @@ function renderDaily(){
       });
       rows+=`<tr style="${ci===0?'border-top:2px solid var(--border)':''}">${dateTd}<td class="col-ch" style="white-space:nowrap;padding:6px 10px">${chLabel}</td>${kpiCells}</tr>`;
     });
-    // Total row
+    // Total row per date
     let totCells='';
     activeKPIs.forEach(kpi=>{
       const cur=getDayTotal(dt,kpi);const prev=di<allDates.length-1?getDayTotal(allDates[di+1],kpi):null;
@@ -880,7 +1028,25 @@ function renderDaily(){
     rows+=`<tr style="background:var(--bg2)"><td class="col-ch" style="padding:6px 10px;font-weight:600;color:var(--text2);font-size:11px">合计</td>${totCells}</tr>`;
     return rows;
   }).join('');
-  tableWrap.innerHTML=`<table><thead><tr><th>日期</th><th>渠道</th>${headerCols}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+
+  // ── 范围总计行（对所有可见日期的原始行整体聚合，比率类KPI正确加权） ──
+  const grandRows=data.filter(r=>{const d=parseDate(r['时间']);return d&&localStr(d)>=allDates[allDates.length-1]&&localStr(d)<=allDates[0]});
+  let grandChCells='';
+  sortedCh.forEach((ch,ci)=>{
+    const chRows=grandRows.filter(r=>normCh(r['渠道'])===ch);
+    const chColor=CH_COLOR[ch]||'#9ca3af';const chDash=CH_DASH[ch]||[];
+    const lineStyle=chDash.length?`border-top:2px dashed ${chColor};width:18px;height:0;display:inline-block`:`border-top:2.5px solid ${chColor};width:18px;height:0;display:inline-block`;
+    const chLabel=`<div style="display:flex;align-items:center;gap:5px"><span style="${lineStyle}"></span><span>${ch}</span></div>`;
+    const dateTd=ci===0?`<td class="col-date" rowspan="${sortedCh.length+1}" style="vertical-align:middle;border-right:1px solid var(--border);background:#f0f4ff;font-weight:700;color:var(--accent)">范围总计<br><span style="font-size:10px;font-weight:400;color:var(--text3)">${labels[labels.length-1]}~${labels[0]}</span></td>`:'';
+    let kpiCells='';
+    activeKPIs.forEach(kpi=>{kpiCells+=`<td style="background:#f0f4ff">${fmt(aggVal(chRows,kpi),kpi)}</td>`});
+    grandChCells+=`<tr style="${ci===0?'border-top:3px solid var(--accent)':''}">${dateTd}<td class="col-ch" style="white-space:nowrap;padding:6px 10px;background:#f0f4ff">${chLabel}</td>${kpiCells}</tr>`;
+  });
+  let grandTotCells='';
+  activeKPIs.forEach(kpi=>{grandTotCells+=`<td style="font-weight:700;color:var(--accent);background:#f0f4ff">${fmt(aggVal(grandRows,kpi),kpi)}</td>`});
+  grandChCells+=`<tr style="background:#e8eeff"><td class="col-ch" style="padding:6px 10px;font-weight:700;color:var(--accent);font-size:11px;background:#e8eeff">总合计</td>${grandTotCells}</tr>`;
+
+  tableWrap.innerHTML=`<table><thead><tr><th>日期</th><th>渠道</th>${headerCols}</tr></thead><tbody>${grandChCells}${bodyRows}</tbody></table>`;
 }
 
 /* ── Alerts：只看下拉选中的1个KPI，固定近7天，只显示重大波动（更短更聚焦） ── */
@@ -1037,7 +1203,25 @@ function renderWeekly(){
     return rows;
   });
   // 行顺序倒序展示（最新周在最上面），环比数值已在上面按正序算好，不受影响
-  tableWrap.innerHTML=`<table><thead><tr><th>周次</th><th>渠道</th>${headerCols}</tr></thead><tbody>${bodyRows.slice().reverse().join('')}</tbody></table>`;
+  // ── 范围总计行（对所有可见周的原始行整体聚合） ──
+  const grandRowsW=data.filter(r=>{const d=parseDate(r['时间']);return d&&visibleWeeks.includes(isoWeek(d))});
+  let grandChCellsW='';
+  sortedCh.forEach((ch,ci)=>{
+    const chRows=grandRowsW.filter(r=>normCh(r['渠道'])===ch);
+    const chColor=CH_COLOR[ch]||'#9ca3af';const chDash=CH_DASH[ch]||[];
+    const lineStyle=chDash.length?`border-top:2px dashed ${chColor};width:18px;height:0;display:inline-block`:`border-top:2.5px solid ${chColor};width:18px;height:0;display:inline-block`;
+    const chLabel=`<div style="display:flex;align-items:center;gap:5px"><span style="${lineStyle}"></span><span>${ch}</span></div>`;
+    const rangeLabel=`W${visibleWeeks[0]%100}~W${visibleWeeks[visibleWeeks.length-1]%100}`;
+    const dateTd=ci===0?`<td class="col-date" rowspan="${sortedCh.length+1}" style="vertical-align:middle;border-right:1px solid var(--border);background:#f0f4ff;font-weight:700;color:var(--accent)">范围总计<br><span style="font-size:10px;font-weight:400;color:var(--text3)">${rangeLabel}</span></td>`:'';
+    let kpiCells='';
+    activeWeekKPIs.forEach(kpi=>{kpiCells+=`<td style="background:#f0f4ff">${fmt(aggVal(chRows,kpi),kpi)}</td>`});
+    grandChCellsW+=`<tr style="${ci===0?'border-top:3px solid var(--accent)':''}">${dateTd}<td class="col-ch" style="white-space:nowrap;padding:6px 10px;background:#f0f4ff">${chLabel}</td>${kpiCells}</tr>`;
+  });
+  let grandTotCellsW='';
+  activeWeekKPIs.forEach(kpi=>{grandTotCellsW+=`<td style="font-weight:700;color:var(--accent);background:#f0f4ff">${fmt(aggVal(grandRowsW,kpi),kpi)}</td>`});
+  grandChCellsW+=`<tr style="background:#e8eeff"><td class="col-ch" style="padding:6px 10px;font-weight:700;color:var(--accent);font-size:11px;background:#e8eeff">总合计</td>${grandTotCellsW}</tr>`;
+
+  tableWrap.innerHTML=`<table><thead><tr><th>周次</th><th>渠道</th>${headerCols}</tr></thead><tbody>${grandChCellsW}${bodyRows.slice().reverse().join('')}</tbody></table>`;
 }
 
 /* ── Weekly Summary ── */
@@ -1080,6 +1264,197 @@ function buildWeeklySummary(data,thisWn,vsWn){
   el.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${weekLabel(thisWn)} vs ${weekLabel(vsWn)} · 消耗单位：百万元，回搜单位：千次</div>`+lines.join('');
 }
 
+/* ══════════════════════════════════
+   MONTHLY
+══════════════════════════════════ */
+function populateMonthSels(){
+  const monthSet=new Set();
+  RAW.forEach(r=>{const d=parseDate(r['时间']);if(d)monthSet.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)});
+  const allMonths=[...monthSet].sort();
+  const fmtM=ym=>{const[y,m]=ym.split('-');return`${y}年${parseInt(m)}月`};
+  const opts=allMonths.map(m=>`<option value="${m}">${fmtM(m)}</option>`).join('');
+  ['sel-month-start','sel-month-end'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts});
+  if(allMonths.length){
+    const ei=allMonths.length-1,si=Math.max(0,ei-2);
+    const ss=document.getElementById('sel-month-start'),se=document.getElementById('sel-month-end');
+    if(ss)ss.value=allMonths[si];if(se)se.value=allMonths[ei];
+  }
+}
+function onMonthRangeChange(){renderMonthly();}
+function setMonthPreset(n){
+  const monthSet=new Set();
+  RAW.forEach(r=>{const d=parseDate(r['时间']);if(d)monthSet.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)});
+  const allMonths=[...monthSet].sort();
+  if(!allMonths.length)return;
+  const ei=allMonths.length-1,si=n===0?0:Math.max(0,ei-(n-1));
+  const ss=document.getElementById('sel-month-start'),se=document.getElementById('sel-month-end');
+  if(ss)ss.value=allMonths[si];if(se)se.value=allMonths[ei];
+  renderMonthly();
+}
+
+function renderMonthly(){
+  const data=filtered();
+  const monthSet=new Set();
+  data.forEach(r=>{const d=parseDate(r['时间']);if(d)monthSet.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)});
+  const allMonths=[...monthSet].sort();
+
+  const rawStart=document.getElementById('sel-month-start').value||'';
+  const rawEnd=document.getElementById('sel-month-end').value||'';
+  const startM=rawStart<rawEnd?rawStart:rawEnd;
+  const endM=rawStart<rawEnd?rawEnd:rawStart;
+  const visibleMonths=allMonths.filter(m=>m>=startM&&m<=endM);
+
+  const channels=[...new Set(data.map(r=>normCh(r['渠道'])).filter(Boolean))];
+  const chOrder={SEM:0,FEEDS:1};
+  const sortedCh=[...channels].sort((a,b)=>(chOrder[a]??99)-(chOrder[b]??99));
+  const fmtM=ym=>{const[y,m]=ym.split('-');return`${parseInt(m)}月`};
+  const labels=visibleMonths.map(fmtM);
+  const labelsFull=visibleMonths.map(ym=>{const[y,m]=ym.split('-');return`${y}年${parseInt(m)}月`});
+
+  function mAgg(ym,ch,kpi){return aggVal(data.filter(r=>{const d=parseDate(r['时间']);if(!d)return false;const m=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;return m===ym&&normCh(r['渠道'])===ch}),kpi)}
+  function mTotal(ym,kpi){return aggVal(data.filter(r=>{const d=parseDate(r['时间']);if(!d)return false;const m=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;return m===ym}),kpi)}
+
+  // 摘要：终止月 vs 起始月
+  buildMonthlySummary(data,endM,startM);
+
+  if(!visibleMonths.length){
+    document.getElementById('month-legend').innerHTML='';
+    document.getElementById('month-chart-grid').innerHTML='';
+    document.getElementById('monthly-table-wrap').innerHTML='<div class="no-data">暂无数据</div>';
+    monthCharts.forEach(c=>c.destroy());monthCharts=[];
+    return;
+  }
+
+  // 图例
+  let li=0;const legendItems=[];
+  sortedCh.forEach(ch=>{
+    const col=LINE_PALETTE[li%LINE_PALETTE.length];li++;
+    const dash=CH_DASH[ch]||[];
+    legendItems.push(`<div class="legend-item"><div style="width:22px;height:0;border-top:2px ${dash.length?'dashed':'solid'} ${col};flex-shrink:0"></div><span>${ch}</span></div>`);
+  });
+  document.getElementById('month-legend').innerHTML=legendItems.join('');
+
+  // 小图阵列
+  monthCharts.forEach(c=>c.destroy());monthCharts=[];
+  const gridEl=document.getElementById('month-chart-grid');
+  gridEl.innerHTML=activeMonthKPIs.map((kpi,ki)=>`
+    <div class="chart-grid-item">
+      <div class="chart-grid-title">${kpi}</div>
+      <div class="chart-grid-wrap"><canvas id="month-chart-${ki}"></canvas></div>
+    </div>`).join('');
+
+  activeMonthKPIs.forEach((kpi,ki)=>{
+    const canvasEl=document.getElementById('month-chart-'+ki);
+    if(!canvasEl)return;
+    const datasets=[];let lineIdx=0;
+    sortedCh.forEach(ch=>{
+      const col=LINE_PALETTE[lineIdx%LINE_PALETTE.length];lineIdx++;
+      const dash=CH_DASH[ch]||[];
+      const rawData=visibleMonths.map(ym=>{const v=mAgg(ym,ch,kpi);return(v==null||isNaN(v))?null:v});
+      datasets.push({label:ch,data:rawData,borderColor:col,backgroundColor:col+'18',borderWidth:2,
+        pointRadius:3,pointHoverRadius:5,borderDash:dash,tension:.3,fill:false,spanGaps:true});
+    });
+    const existing=Chart.getChart(canvasEl);if(existing)existing.destroy();
+    monthCharts.push(new Chart(canvasEl,{
+      type:'line',data:{labels,datasets},
+      options:{responsive:true,maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{legend:{display:false},tooltip:{
+          backgroundColor:'#fff',borderColor:'#e5e7eb',borderWidth:1,
+          titleColor:'#6b7280',bodyColor:'#111827',padding:10,
+          callbacks:{title:items=>labelsFull[items[0].dataIndex],label:ctx=>`  ${ctx.dataset.label}: ${fmt(ctx.raw,kpi)}`}
+        }},
+        scales:{
+          x:{ticks:{color:'#9ca3af',font:{size:10}},grid:{color:'#f3f4f6'}},
+          y:{ticks:{color:'#9ca3af',font:{size:10},callback:v=>fmt(v,kpi)},grid:{color:'#f3f4f6'}}
+        }
+      }
+    }));
+  });
+
+  // 表格（最新月在最上面）
+  const tableWrap=document.getElementById('monthly-table-wrap');
+  let headerCols='';activeMonthKPIs.forEach(kpi=>{headerCols+=`<th>${kpi}</th>`});
+
+  const bodyRows=visibleMonths.map((ym,mi)=>{
+    const fullLabel=labelsFull[mi];
+    let rows='';
+    sortedCh.forEach((ch,ci)=>{
+      const chColor=CH_COLOR[ch]||'#9ca3af';const chDash=CH_DASH[ch]||[];
+      const lineStyle=chDash.length?`border-top:2px dashed ${chColor};width:18px;height:0;display:inline-block`:`border-top:2.5px solid ${chColor};width:18px;height:0;display:inline-block`;
+      const chLabel=`<div style="display:flex;align-items:center;gap:5px"><span style="${lineStyle}"></span><span>${ch}</span></div>`;
+      const dateTd=ci===0?`<td class="col-date" rowspan="${sortedCh.length+1}" style="vertical-align:middle;border-right:1px solid var(--border);white-space:nowrap">${fullLabel}</td>`:'';
+      let kpiCells='';
+      activeMonthKPIs.forEach(kpi=>{
+        const cur=mAgg(ym,ch,kpi);const prev=mi>0?mAgg(visibleMonths[mi-1],ch,kpi):null;
+        kpiCells+=`<td>${fmt(cur,kpi)}${fmtChange(calcChange(cur,prev,kpi),kpi)}</td>`;
+      });
+      rows+=`<tr style="${ci===0?'border-top:2px solid var(--border)':''}">${dateTd}<td class="col-ch" style="white-space:nowrap;padding:6px 10px">${chLabel}</td>${kpiCells}</tr>`;
+    });
+    let totCells='';
+    activeMonthKPIs.forEach(kpi=>{
+      const cur=mTotal(ym,kpi);const prev=mi>0?mTotal(visibleMonths[mi-1],kpi):null;
+      totCells+=`<td style="font-weight:600;color:var(--text)">${fmt(cur,kpi)}${fmtChange(calcChange(cur,prev,kpi),kpi)}</td>`;
+    });
+    rows+=`<tr style="background:var(--bg2)"><td class="col-ch" style="padding:6px 10px;font-weight:600;color:var(--text2);font-size:11px">合计</td>${totCells}</tr>`;
+    return rows;
+  });
+  // ── 范围总计行（对所有可见月的原始行整体聚合） ──
+  const grandRowsM=data.filter(r=>{const d=parseDate(r['时间']);if(!d)return false;const m=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;return m>=visibleMonths[0]&&m<=visibleMonths[visibleMonths.length-1]});
+  const fmtLabel2=ym=>{const[y,mo]=ym.split('-');return`${y}年${parseInt(mo)}月`};
+  const rangeLabel=`${fmtLabel2(visibleMonths[0])}~${fmtLabel2(visibleMonths[visibleMonths.length-1])}`;
+  let grandChCellsM='';
+  sortedCh.forEach((ch,ci)=>{
+    const chRows=grandRowsM.filter(r=>normCh(r['渠道'])===ch);
+    const chColor=CH_COLOR[ch]||'#9ca3af';const chDash=CH_DASH[ch]||[];
+    const lineStyle=chDash.length?`border-top:2px dashed ${chColor};width:18px;height:0;display:inline-block`:`border-top:2.5px solid ${chColor};width:18px;height:0;display:inline-block`;
+    const chLabel=`<div style="display:flex;align-items:center;gap:5px"><span style="${lineStyle}"></span><span>${ch}</span></div>`;
+    const dateTd=ci===0?`<td class="col-date" rowspan="${sortedCh.length+1}" style="vertical-align:middle;border-right:1px solid var(--border);background:#f0f4ff;font-weight:700;color:var(--accent)">范围总计<br><span style="font-size:10px;font-weight:400;color:var(--text3)">${rangeLabel}</span></td>`:'';
+    let kpiCells='';
+    activeMonthKPIs.forEach(kpi=>{kpiCells+=`<td style="background:#f0f4ff">${fmt(aggVal(chRows,kpi),kpi)}</td>`});
+    grandChCellsM+=`<tr style="${ci===0?'border-top:3px solid var(--accent)':''}">${dateTd}<td class="col-ch" style="white-space:nowrap;padding:6px 10px;background:#f0f4ff">${chLabel}</td>${kpiCells}</tr>`;
+  });
+  let grandTotCellsM='';
+  activeMonthKPIs.forEach(kpi=>{grandTotCellsM+=`<td style="font-weight:700;color:var(--accent);background:#f0f4ff">${fmt(aggVal(grandRowsM,kpi),kpi)}</td>`});
+  grandChCellsM+=`<tr style="background:#e8eeff"><td class="col-ch" style="padding:6px 10px;font-weight:700;color:var(--accent);font-size:11px;background:#e8eeff">总合计</td>${grandTotCellsM}</tr>`;
+
+  tableWrap.innerHTML=`<table><thead><tr><th>月份</th><th>渠道</th>${headerCols}</tr></thead><tbody>${grandChCellsM}${bodyRows.slice().reverse().join('')}</tbody></table>`;
+}
+
+function buildMonthlySummary(data,thisYm,vsYm){
+  const el=document.getElementById('month-summary');if(!el)return;
+  if(!thisYm||!vsYm||thisYm===vsYm){el.innerHTML='<span style="color:var(--text3);font-size:12px">请选择不同的起止月份</span>';return}
+  const projFilter=document.getElementById('sel-project').value;
+  const projects=projFilter!=='ALL'?[projFilter]:[...new Set(data.map(r=>r['来源项目']).filter(Boolean))].sort();
+  function mProjAgg(ym,proj,kpi){
+    return aggVal(data.filter(r=>{
+      const d=parseDate(r['时间']);if(!d)return false;
+      const m=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      return m===ym&&(proj==='ALL'||r['来源项目']===proj);
+    }),kpi);
+  }
+  function fmtMil(v){if(v==null||isNaN(v))return'—';return(v/1000000).toFixed(2)+'M'}
+  function fmtK(v){if(v==null||isNaN(v))return'—';return(v/1000).toFixed(1)+'K'}
+  function fmtPct(cur,prev){
+    if(cur==null||prev==null||prev===0)return'';
+    const pct=(cur-prev)/Math.abs(prev)*100;
+    const col=pct>=0?'var(--danger)':'var(--success)';
+    return`<span style="color:${col};font-size:12px">${pct>=0?'▲':'▼'}${pct>=0?'+':''}${pct.toFixed(1)}%</span>`;
+  }
+  const fmtLabel=ym=>{const[y,m]=ym.split('-');return`${y}年${parseInt(m)}月`};
+  const lines=projects.map(proj=>{
+    const thisCost=mProjAgg(thisYm,proj,'消耗'),vsCost=mProjAgg(vsYm,proj,'消耗');
+    const thisSrch=mProjAgg(thisYm,proj,'回搜量'),vsSrch=mProjAgg(vsYm,proj,'回搜量');
+    return`<div style="padding:3px 0;border-bottom:1px solid var(--border);margin-bottom:2px">
+      <span style="font-weight:600;color:var(--accent);min-width:60px;display:inline-block">【${proj}】</span>
+      消耗 <b>${fmtMil(thisCost)}</b> vs <b>${fmtMil(vsCost)}</b> ${fmtPct(thisCost,vsCost)}
+      <span style="margin:0 8px;color:var(--border2)">·</span>
+      回搜 <b>${fmtK(thisSrch)}</b> vs <b>${fmtK(vsSrch)}</b> ${fmtPct(thisSrch,vsSrch)}
+    </div>`;
+  });
+  el.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${fmtLabel(thisYm)} vs ${fmtLabel(vsYm)} · 消耗单位：百万元，回搜单位：千次</div>`+lines.join('');
+}
+
 /* ── Wiring ── */
 const dz=document.getElementById('drop-zone'),fi=document.getElementById('file-input');
 dz.addEventListener('click',()=>{
@@ -1090,6 +1465,265 @@ fi.addEventListener('change',e=>{if(e.target.files[0])readFile(e.target.files[0]
 dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover')});
 dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
 dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f)readFile(f)}); // 拖拽方式无法获取持久句柄，仅读取一次内容
+
+/* ══════════════════════════════════
+   🤖 AI Agent 辅助逻辑与 OpenRouter 核心
+══════════════════════════════════ */
+
+// 0. 补充依赖的小工具函数（原文件未提供，仅新增，不影响其他逻辑）
+function toYM(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
+function fmtLabel(ym){const[y,m]=ym.split('-');return`${y}年${parseInt(m)}月`}
+
+// 1. 变量声明
+let aiHistory = [];   
+let aiKey = '';
+let aiTyping = false;
+
+// 2. 面板与 Key 管理
+function toggleAIPanel(){
+  const panel=document.getElementById('ai-panel');
+  panel.classList.toggle('open');
+  if(panel.classList.contains('open')){
+    updateAICtx();
+  }
+}
+
+function onKeyInput(){
+  const v=document.getElementById('ai-key-input').value.trim();
+  document.getElementById('ai-key-btn').textContent=v?'保存':'保存';
+}
+
+function saveKey(){
+  const v=document.getElementById('ai-key-input').value.trim();
+  if(!v){alert('请先粘贴 sk-or- 开头的 API Key');return}
+  aiKey=v;
+  sessionStorage.setItem('openrouter_key',v);
+  document.getElementById('ai-key-input').value='••••••••••••••••';
+  updateSendBtn();
+  document.getElementById('ai-input').focus();
+}
+
+function updateSendBtn(){
+  const hasData=RAW && RAW.length>0;
+  document.getElementById('ai-send').disabled=!hasData||aiTyping;
+}
+
+// 3. UI 交互辅助
+function askSuggestion(el){
+  document.getElementById('ai-input').value=el.textContent;
+  sendAIMsg();
+}
+
+function onAIKey(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAIMsg()}
+}
+
+function autoResize(el){
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight,100)+'px';
+}
+
+function appendMsg(role,html){
+  const wrap=document.getElementById('ai-messages');
+  const div=document.createElement('div');
+  div.className='ai-msg '+role;
+  div.innerHTML=html;
+  wrap.appendChild(div);
+  wrap.scrollTop=wrap.scrollHeight;
+  return div;
+}
+
+function mdToHtml(text){
+  return text
+    .replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')
+    .replace(/\n- /g,'<br>• ')
+    .replace(/\n/g,'<br>');
+}
+
+// 4. 数据上下文组装 (抓取看板数据喂给AI)
+function buildDataContext(){
+  const data=filtered(); // 获取当前筛选后的数据
+  if(!data.length)return null;
+
+  const proj=document.getElementById('sel-project').value;
+  const ch=document.getElementById('sel-channel').value;
+
+  // 日维度数据聚合 (传给AI近15天数据)
+  const dayMap={};
+  data.forEach(r=>{
+    const d=parseDate(r['时间']);if(!d)return;
+    const dt=localStr(d);const c=normCh(r['渠道']);const p=r['来源项目'];
+    if(!c||!p)return;
+    const key=dt+'__'+p+'__'+c;
+    if(!dayMap[key])dayMap[key]={date:dt,project:p,channel:c,_rows:[]};
+    dayMap[key]._rows.push(r);
+  });
+  const allDatesSorted=[...new Set(Object.values(dayMap).map(g=>g.date))].sort((a,b)=>a.localeCompare(b));
+  const recentDates=allDatesSorted.slice(-15);
+  const daily=Object.values(dayMap).filter(g=>recentDates.includes(g.date))
+    .sort((a,b)=>a.date.localeCompare(b.date)||a.project.localeCompare(b.project)||a.channel.localeCompare(b.channel))
+    .map(g=>{
+    const kpiVals={};
+    ['消耗','CTR','CPC','回搜量','回搜率','CPS','当日回搜量','当日回搜率','当日回搜成本'].forEach(k=>{
+      const v=aggVal(g._rows,k);kpiVals[k]=(v!=null&&!isNaN(v))?Math.round(v*100)/100:null;
+    });
+    return{date:g.date,project:g.project,channel:g.channel,...kpiVals};
+  });
+
+  // 月维度数据聚合 (传给AI近6个月数据)
+  const monthMap={};
+  data.forEach(r=>{
+    const d=parseDate(r['时间']);if(!d)return;
+    const ym=toYM(d);const c=normCh(r['渠道']);const p=r['来源项目'];
+    if(!c||!p)return;
+    const key=ym+'__'+p+'__'+c;
+    if(!monthMap[key])monthMap[key]={month:fmtLabel(ym),ymVal:ym,project:p,channel:c,_rows:[]};
+    monthMap[key]._rows.push(r);
+  });
+  const allYmsSorted=[...new Set(Object.values(monthMap).map(g=>g.ymVal))].sort((a,b)=>a.localeCompare(b));
+  const recentYms=allYmsSorted.slice(-6);
+  const monthly=Object.values(monthMap).filter(g=>recentYms.includes(g.ymVal))
+    .sort((a,b)=>a.ymVal.localeCompare(b.ymVal)||a.project.localeCompare(b.project)||a.channel.localeCompare(b.channel))
+    .map(g=>{
+      const kpiVals={};
+      ['消耗','CTR','CPC','回搜量','回搜率','CPS'].forEach(k=>{
+        const v=aggVal(g._rows,k);kpiVals[k]=(v!=null&&!isNaN(v))?Math.round(v*100)/100:null;
+      });
+      return{month:g.month,project:g.project,channel:g.channel,...kpiVals};
+    });
+
+  const dates=data.map(r=>parseDate(r['时间'])).filter(Boolean).sort((a,b)=>a-b);
+  return{
+    meta:{
+      project:proj,channel:ch,
+      dateRange:`${localStr(dates[0])} ~ ${localStr(dates[dates.length-1])}`,
+      totalRows:data.length
+    },
+    daily,   
+    monthly   
+  };
+}
+
+function updateAICtx(){
+  const el=document.getElementById('ai-ctx');
+  if(!el)return;
+  if(!RAW||!RAW.length){el.textContent='尚未加载数据';updateSendBtn();return}
+  try{
+    const ctx=buildDataContext();
+    if(!ctx){el.textContent='当前筛选无数据';updateSendBtn();return}
+    const proj=document.getElementById('sel-project')?.value || 'ALL';
+    const ch=document.getElementById('sel-channel')?.value || 'ALL';
+    el.textContent=`数据上下文：${proj==='ALL'?'全部项目':proj} · ${ch==='ALL'?'全部渠道':ch} · ${ctx.meta.dateRange}`;
+  }catch(e){
+    el.textContent=`已加载 ${RAW.length} 行数据`;
+  }
+  updateSendBtn();
+}
+
+// 5. 核心：请求 OpenRouter 接口的函数
+async function sendAIMsg() {
+  const input = document.getElementById('ai-input');
+  const text = input.value.trim();
+  if (!text || document.getElementById('ai-send').disabled) return;
+
+  appendMsg('user', text);
+  input.value = '';
+  input.style.height = 'auto'; 
+  
+  aiTyping = true;
+  updateSendBtn();
+
+  const thinkEl = appendMsg('thinking', 'AI 正在基于看板数据进行思考...');
+
+  try {
+    const ctx = buildDataContext(); 
+    const systemText = `你是一个专业的小红书投放数据分析师，服务于消费品品牌的媒介运营团队。
+
+当前看板数据（JSON）如下，请严格基于此数据回答，不得编造数字：
+${JSON.stringify(ctx)}
+
+【数据字段单位】
+- 消耗、CPC、CPS、当日回搜成本：人民币元
+- CTR、回搜率、当日回搜率：小数比例（0.145 = 14.5%）
+- 回搜量、当日回搜量：次数
+- 数据维度：daily = 日粒度（含"project"项目字段），weekly = 周粒度，monthly = 月粒度
+
+【数据结构说明】
+- 每条记录同时包含"project"（项目/品牌线）和"channel"（渠道，如SEM/FEEDS）两个维度
+- 分析时需要同时考虑：项目间对比、渠道间对比、以及同一项目内不同渠道的对比
+- 如果当前筛选了特定项目或渠道，请在回答开头说明当前数据范围
+
+【分析重点——请主动关注以下优先级】
+
+▌日维度核心指标：
+① 当日回搜成本（首要效率指标）：数值越低越好，优先对比各项目×渠道组合
+② 当日回搜量：规模指标，配合当日回搜成本看投入产出比
+③ CPC：点击成本，判断各项目/渠道的流量获取效率
+④ CTR：点击率，判断素材与人群匹配度
+
+▌周/月维度核心指标：
+① CPS（首要效率指标）：每次回搜成本，重点看各项目和渠道的跨期趋势，持续上升需预警
+② 回搜量：各项目的品牌声量走势
+③ 消耗：结合CPS看各项目投入产出变化
+
+【项目维度分析框架】
+- 多项目时：先汇总整体表现，再拆分各项目对比，找出表现最好/最差的项目
+- 重点关注：同一渠道下不同项目的CPS/当日回搜成本差异
+- 如某项目消耗占比高但回搜贡献低，需特别指出并量化差距
+- 项目间效率差距超过10%时，标注为值得重点关注的结构性差异
+
+【渠道维度分析框架】
+- 对同一项目内的 SEM vs FEEDS 等渠道做横向效率对比
+- 同等消耗下，CPS/当日回搜成本更低的渠道效率更高
+- 如某渠道在多个项目中都表现出效率下滑，判断为渠道级别问题而非项目问题
+
+【回答格式要求】
+1. 先给出 1-2 句核心结论（点明哪个项目/渠道表现突出或异常）
+2. 分项目或分渠道用数据支撑（关键数字**加粗**，比率换算成百分比）
+3. 异常或值得关注的变化单独标注 ⚠️
+4. 消耗金额超过1万元换算为"万元"，超过100万换算为"百万元"
+5. 数据不足以回答时，直接说明缺少什么维度的数据`;
+
+    const messages = [
+      { role: 'system', content: systemText },
+      ...aiHistory,
+      { role: 'user', content: text }
+    ];
+
+    const response = await fetch('http://localhost:3000/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messages: messages
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      thinkEl.className = 'ai-msg assistant';
+      thinkEl.innerHTML = `<span style="color:var(--danger)">❌ 接口请求被拒绝：${data.error.message}</span>`;
+    } else {
+      const answer = data.choices?.[0]?.message?.content || '（AI 返回了空内容）';
+      
+      aiHistory.push({ role: 'user', content: text });
+      aiHistory.push({ role: 'assistant', content: answer });
+      if (aiHistory.length > 20) aiHistory = aiHistory.slice(-20);
+
+      thinkEl.className = 'ai-msg assistant';
+      thinkEl.innerHTML = mdToHtml(answer);
+    }
+  } catch (err) {
+    console.error('OpenRouter API 错误:', err);
+    thinkEl.className = 'ai-msg assistant';
+    thinkEl.innerHTML = `<span style="color:var(--danger)">❌ 网络连接失败：${err.message}。请检查网络环境。</span>`;
+  } finally {
+    aiTyping = false;
+    updateSendBtn();
+  }
+}
 </script>
 </body>
 </html>
